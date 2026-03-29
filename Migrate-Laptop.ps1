@@ -343,6 +343,8 @@ function Get-UserProfileFolders {
             continue
         }
         try {
+            # Detect if folder is redirected to OneDrive (Known Folder Move / KFM)
+            $isOneDrive = $folder.Path -imatch 'OneDrive'
             $items = Get-ChildItem -Path $folder.Path -Recurse -Force -ErrorAction SilentlyContinue
             $fileCount = @($items | Where-Object { -not $_.PSIsContainer }).Count
             $totalSize = ($items | Where-Object { -not $_.PSIsContainer } | Measure-Object -Property Length -Sum).Sum
@@ -353,8 +355,13 @@ function Get-UserProfileFolders {
                 FileCount = $fileCount
                 Size      = $totalSize
                 SizeText  = Format-Size $totalSize
+                IsOneDrive = $isOneDrive
             }
-            Write-Log "$($folder.Name): $fileCount files, $(Format-Size $totalSize) — $($folder.Path)" -Level Info
+            if ($isOneDrive) {
+                Write-Log "$($folder.Name): $fileCount files, $(Format-Size $totalSize) — $($folder.Path) [ONEDRIVE SYNCED]" -Level Info
+            } else {
+                Write-Log "$($folder.Name): $fileCount files, $(Format-Size $totalSize) — $($folder.Path)" -Level Info
+            }
             $results += $result
         } catch {
             Write-Log "$($folder.Name): error scanning — $($_.Exception.Message)" -Level Warn
@@ -2029,17 +2036,48 @@ function Write-TransferScript {
     [void]$sb.AppendLine('# USER PROFILE FOLDERS (C:\Users)')
     [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
     [void]$sb.AppendLine('')
+
+    # Check for OneDrive-redirected folders and warn
+    $oneDriveFolders = @($ScanData.UserFolders | Where-Object { $_.IsOneDrive })
+    if ($oneDriveFolders.Count -gt 0) {
+        [void]$sb.AppendLine('# ── ONEDRIVE NOTICE ──')
+        [void]$sb.AppendLine('Write-Host ""')
+        [void]$sb.AppendLine('Write-Host "  ┌──────────────────────────────────────────────────────────┐" -ForegroundColor Blue')
+        [void]$sb.AppendLine('Write-Host "  │  ONEDRIVE DETECTED                                      │" -ForegroundColor Blue')
+        [void]$sb.AppendLine('Write-Host "  ├──────────────────────────────────────────────────────────┤" -ForegroundColor Blue')
+        [void]$sb.AppendLine('Write-Host "  │  Some folders are synced to OneDrive (corporate or       │" -ForegroundColor Blue')
+        [void]$sb.AppendLine('Write-Host "  │  personal). These will sync automatically when you sign   │" -ForegroundColor Blue')
+        [void]$sb.AppendLine('Write-Host "  │  into OneDrive on the new laptop — no need to copy them. │" -ForegroundColor Blue')
+        [void]$sb.AppendLine('Write-Host "  │                                                          │" -ForegroundColor Blue')
+        [void]$sb.AppendLine('Write-Host "  │  OneDrive-synced folders detected:                       │" -ForegroundColor Blue')
+        foreach ($odf in $oneDriveFolders) {
+            [void]$sb.AppendLine("Write-Host `"  │    $($odf.Name) → $($odf.Path)`" -ForegroundColor DarkCyan")
+        }
+        [void]$sb.AppendLine('Write-Host "  │                                                          │" -ForegroundColor Blue')
+        [void]$sb.AppendLine('Write-Host "  │  You can SKIP these — or copy them as a backup.          │" -ForegroundColor Blue')
+        [void]$sb.AppendLine('Write-Host "  └──────────────────────────────────────────────────────────┘" -ForegroundColor Blue')
+        [void]$sb.AppendLine('Write-Host ""')
+        [void]$sb.AppendLine('')
+    }
+
     $folderIdx = 0
     foreach ($f in $ScanData.UserFolders) {
         if ($f.FileCount -eq 0) { continue }
         $folderIdx++
         $safeName = $f.Name -replace '[^a-zA-Z0-9]', ''
         $stepId = "folder-$safeName"
-        [void]$sb.AppendLine("# $($f.Name): $($f.FileCount) files, $($f.SizeText)")
+        $oneDriveTag = if ($f.IsOneDrive) { " [ONEDRIVE — syncs automatically]" } else { "" }
+        [void]$sb.AppendLine("# $($f.Name): $($f.FileCount) files, $($f.SizeText)$oneDriveTag")
         [void]$sb.AppendLine("if (Test-StepDone '$stepId') { Write-Host `"  [SKIP] $($f.Name) — already transferred`" -ForegroundColor DarkGray }")
         [void]$sb.AppendLine("else {")
-        [void]$sb.AppendLine("`$confirm$safeName = Read-Host `"Transfer $($f.Name) ($($f.SizeText))? [Y/n]`"")
-        [void]$sb.AppendLine("if (`$confirm$safeName -notmatch '^[nN]') {")
+        if ($f.IsOneDrive) {
+            [void]$sb.AppendLine("Write-Host `"  ☁ $($f.Name) is synced to OneDrive — it will sync automatically on the new laptop.`" -ForegroundColor Blue")
+            [void]$sb.AppendLine("`$confirm$safeName = Read-Host `"  Copy $($f.Name) anyway as backup ($($f.SizeText))? [y/N]`"")
+            [void]$sb.AppendLine("if (`$confirm$safeName -match '^[yY]') {")
+        } else {
+            [void]$sb.AppendLine("`$confirm$safeName = Read-Host `"Transfer $($f.Name) ($($f.SizeText))? [Y/n]`"")
+            [void]$sb.AppendLine("if (`$confirm$safeName -notmatch '^[nN]') {")
+        }
         [void]$sb.AppendLine("    Write-Host `"  Transferring $($f.Name)...`" -ForegroundColor Yellow")
         [void]$sb.AppendLine("    robocopy `"$($f.Path)`" `"`$destBase\C\$($f.Name)`" `$roboFlags /XD `$commonXD /XF `$commonXF /LOG+:`$logFile")
         [void]$sb.AppendLine("    Save-Progress '$stepId' 'done'")
