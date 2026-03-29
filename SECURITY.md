@@ -118,7 +118,7 @@ The [Security Scan workflow](.github/workflows/security-scan.yml) runs on every 
 | **No SSH key reading** | Private key contents are never accessed |
 | **No obfuscation** | No Base64 encoding, `Invoke-Expression` on user data, or encoded commands |
 | **Write scope check** | All file writes go to the output directory only |
-| **OpenSSF Scorecard** | Supply chain security best practices |
+| **No credential handling** | No Get-Credential, SecureString, or password reading APIs |
 
 ## What to Review Before Running on New Laptop
 
