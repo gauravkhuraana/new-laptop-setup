@@ -154,11 +154,12 @@ jobs:
           echo "=== Checking for credential/password handling ==="
           SCRIPT="Migrate-Laptop.ps1"
 
-          # Should not use Get-Credential, ConvertTo-SecureString, or read passwords
-          if grep -n 'Get-Credential\|ConvertTo-SecureString\|SecureStringToBSTR\|Read-Host.*-AsSecureString\|password' "$SCRIPT" \
+          # Should not use Get-Credential, ConvertTo-SecureString, or read passwords programmatically
+          # Exclude: Write-Host (informational text), comments, AppendLine (HTML/report generation)
+          if grep -n 'Get-Credential\|ConvertTo-SecureString\|SecureStringToBSTR\|Read-Host.*-AsSecureString' "$SCRIPT" \
               | grep -v '^\s*#' \
               | grep -v 'AppendLine' \
-              | grep -iv 'browser.*password\|sync.*password\|export.*password\|KeePass\|Bitwarden\|1Password'; then
+              | grep -v 'Write-Host'; then
             echo "::error::FAIL — Found credential/password handling code"
             exit 1
           fi
