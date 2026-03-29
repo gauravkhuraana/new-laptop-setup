@@ -1,0 +1,3 @@
+# Migration output contains sensitive data (env vars, configs, tokens)
+# Never commit this to a public repo
+migration-output/
