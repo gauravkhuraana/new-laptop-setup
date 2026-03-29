@@ -1992,21 +1992,8 @@ function Write-TransferScript {
         [void]$sb.AppendLine('')
     }
 
-    # Custom data folders — grouped by drive
-    # Instead of asking per-folder (drives can have 100+ folders), we:
-    #   1. List all folders per drive with a comment
-    #   2. Ask once per drive: "Transfer D: drive? [Y/n]"
-    #   3. User can comment out specific folders they don't want BEFORE running
+    # Custom data folders — C: drive per-folder, other drives grouped
     if ($ScanData.CustomFolders.Count -gt 0) {
-        [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
-        [void]$sb.AppendLine('# CUSTOM DATA FOLDERS (by drive)')
-        [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
-        [void]$sb.AppendLine('#')
-        [void]$sb.AppendLine('# Each drive is transferred as one batch. To SKIP a specific')
-        [void]$sb.AppendLine('# folder, add # at the start of its robocopy line below.')
-        [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
-        [void]$sb.AppendLine('')
-
         # Group folders by drive
         $driveGroups = @{}
         foreach ($f in $ScanData.CustomFolders) {
@@ -2015,34 +2002,93 @@ function Write-TransferScript {
             $driveGroups[$drv] += $f
         }
 
-        foreach ($drv in ($driveGroups.Keys | Sort-Object)) {
-            $folders = $driveGroups[$drv]
-            $stepId = "drive-$drv"
-            [void]$sb.AppendLine("# ── Drive $($drv): — $($folders.Count) folders ──")
-            [void]$sb.AppendLine("# Folders that will be copied (comment out any you DON'T want):")
-            foreach ($f in $folders) {
-                [void]$sb.AppendLine("#   $($f.Name) ($($f.SubDirs) subdirs, $($f.TopFiles) top files)")
-            }
-            [void]$sb.AppendLine("")
-            [void]$sb.AppendLine("if (Test-StepDone '$stepId') { Write-Host `"  [SKIP] Drive $($drv): — already transferred`" -ForegroundColor DarkGray }")
-            [void]$sb.AppendLine("else {")
-            [void]$sb.AppendLine("Write-Host `"`n  Drive $($drv): — $($folders.Count) folders found:`" -ForegroundColor Cyan")
-            foreach ($f in $folders) {
-                [void]$sb.AppendLine("Write-Host `"    $($f.Name)`" -ForegroundColor White")
-            }
-            [void]$sb.AppendLine("Write-Host `"  To skip specific folders: exit, edit this script, comment out their robocopy lines.`" -ForegroundColor DarkGray")
-            [void]$sb.AppendLine("`$confirmDrive$drv = Read-Host `"  Transfer all $($folders.Count) folders from $($drv):? [Y/n]`"")
-            [void]$sb.AppendLine("if (`$confirmDrive$drv -notmatch '^[nN]') {")
-            foreach ($f in $folders) {
-                $safeName = "$($f.Drive)_$($f.Name)" -replace '[^a-zA-Z0-9_]', ''
-                [void]$sb.AppendLine("    Write-Host `"  Transferring $($f.Drive):\$($f.Name)...`" -ForegroundColor Yellow")
-                [void]$sb.AppendLine("    robocopy `"$($f.Path)`" `"`$destBase\$($f.Drive)_$($f.Name)`" `$roboFlags /XD `$commonXD /XF `$commonXF /LOG+:`$logFile")
-            }
-            [void]$sb.AppendLine("    Save-Progress '$stepId' 'done'")
-            [void]$sb.AppendLine("    Write-Host `"  Drive $($drv): transfer complete.`" -ForegroundColor Green")
-            [void]$sb.AppendLine("}")
-            [void]$sb.AppendLine("}")  # close else
+        # ── C: Drive — per-folder confirmation (system drive, needs careful selection) ──
+        if ($driveGroups.ContainsKey('C')) {
+            $cFolders = $driveGroups['C']
+            [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
+            [void]$sb.AppendLine("# C: DRIVE — CUSTOM FOLDERS ($($cFolders.Count) found)")
+            [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
+            [void]$sb.AppendLine('#')
+            [void]$sb.AppendLine('# These are non-system folders found on C:\. Each one asks for')
+            [void]$sb.AppendLine('# confirmation individually because C: contains system data.')
+            [void]$sb.AppendLine('#')
+            [void]$sb.AppendLine('# ALREADY EXCLUDED (never copied):')
+            [void]$sb.AppendLine('#   Windows, Program Files, Program Files (x86), ProgramData,')
+            [void]$sb.AppendLine('#   Users (profile folders are handled separately above),')
+            [void]$sb.AppendLine('#   $Recycle.Bin, Recovery, System Volume Information, PerfLogs')
+            [void]$sb.AppendLine('#')
+            [void]$sb.AppendLine('# Only your custom folders on C:\ are listed below.')
+            [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
             [void]$sb.AppendLine('')
+            [void]$sb.AppendLine('Write-Host "`n── C: Drive Custom Folders ──`n" -ForegroundColor Cyan')
+            [void]$sb.AppendLine('Write-Host "  System folders (Windows, Program Files, Users) are excluded." -ForegroundColor DarkGray')
+            [void]$sb.AppendLine('Write-Host "  Only your custom folders are shown below.`n" -ForegroundColor DarkGray')
+            foreach ($f in $cFolders) {
+                $safeName = "C_$($f.Name)" -replace '[^a-zA-Z0-9_]', ''
+                $stepId = "folder-C-$safeName"
+                [void]$sb.AppendLine("# C:\$($f.Name) ($($f.SubDirs) subdirs, $($f.TopFiles) top files)")
+                [void]$sb.AppendLine("if (Test-StepDone '$stepId') { Write-Host `"  [SKIP] C:\$($f.Name) — already transferred`" -ForegroundColor DarkGray }")
+                [void]$sb.AppendLine("else {")
+                [void]$sb.AppendLine("`$confirm$safeName = Read-Host `"  Transfer C:\$($f.Name)? [Y/n]`"")
+                [void]$sb.AppendLine("if (`$confirm$safeName -notmatch '^[nN]') {")
+                [void]$sb.AppendLine("    Write-Host `"  Transferring C:\$($f.Name)...`" -ForegroundColor Yellow")
+                [void]$sb.AppendLine("    robocopy `"$($f.Path)`" `"`$destBase\C_$($f.Name)`" `$roboFlags /XD `$commonXD /XF `$commonXF /LOG+:`$logFile")
+                [void]$sb.AppendLine("    Save-Progress '$stepId' 'done'")
+                [void]$sb.AppendLine("    Write-Host `"  C:\$($f.Name) done.`" -ForegroundColor Green")
+                [void]$sb.AppendLine("}")
+                [void]$sb.AppendLine("}")  # close else
+                [void]$sb.AppendLine('')
+            }
+        }
+
+        # ── Other Drives (D:, E:, etc.) — grouped per drive, per-folder progress ──
+        $otherDrives = $driveGroups.Keys | Where-Object { $_ -ne 'C' } | Sort-Object
+        if ($otherDrives) {
+            [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
+            [void]$sb.AppendLine('# OTHER DRIVES — one confirmation per drive')
+            [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
+            [void]$sb.AppendLine('#')
+            [void]$sb.AppendLine('# Non-C drives are transferred per drive. To skip a specific')
+            [void]$sb.AppendLine('# folder, comment out its robocopy line below before running.')
+            [void]$sb.AppendLine('#')
+            [void]$sb.AppendLine('# Progress is tracked per folder — if interrupted, re-run and')
+            [void]$sb.AppendLine('# completed folders will be skipped automatically.')
+            [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
+            [void]$sb.AppendLine('')
+
+            foreach ($drv in $otherDrives) {
+                $folders = $driveGroups[$drv]
+                [void]$sb.AppendLine("# ── Drive $($drv): — $($folders.Count) folders ──")
+                [void]$sb.AppendLine("# Folders that will be copied (comment out any you DON'T want):")
+                foreach ($f in $folders) {
+                    [void]$sb.AppendLine("#   $($f.Name) ($($f.SubDirs) subdirs, $($f.TopFiles) top files)")
+                }
+                [void]$sb.AppendLine("")
+
+                # Check if ALL folders on this drive are already done
+                [void]$sb.AppendLine("Write-Host `"`n  Drive $($drv): — $($folders.Count) folders found:`" -ForegroundColor Cyan")
+                foreach ($f in $folders) {
+                    [void]$sb.AppendLine("Write-Host `"    $($f.Name)`" -ForegroundColor White")
+                }
+                [void]$sb.AppendLine("Write-Host `"  To skip specific folders: exit, edit this script, comment out their robocopy lines.`" -ForegroundColor DarkGray")
+                [void]$sb.AppendLine("`$confirmDrive$drv = Read-Host `"  Transfer $($drv): drive ($($folders.Count) folders)? [Y/n]`"")
+                [void]$sb.AppendLine("if (`$confirmDrive$drv -notmatch '^[nN]') {")
+
+                foreach ($f in $folders) {
+                    $safeName = "$($f.Drive)_$($f.Name)" -replace '[^a-zA-Z0-9_]', ''
+                    $stepId = "folder-$safeName"
+                    [void]$sb.AppendLine("    if (Test-StepDone '$stepId') { Write-Host `"    [SKIP] $($f.Name) — already transferred`" -ForegroundColor DarkGray }")
+                    [void]$sb.AppendLine("    else {")
+                    [void]$sb.AppendLine("        Write-Host `"  Transferring $($drv):\$($f.Name)...`" -ForegroundColor Yellow")
+                    [void]$sb.AppendLine("        robocopy `"$($f.Path)`" `"`$destBase\$($f.Drive)_$($f.Name)`" `$roboFlags /XD `$commonXD /XF `$commonXF /LOG+:`$logFile")
+                    [void]$sb.AppendLine("        Save-Progress '$stepId' 'done'")
+                    [void]$sb.AppendLine("    }")
+                }
+
+                [void]$sb.AppendLine("    Write-Host `"  Drive $($drv): transfer complete.`" -ForegroundColor Green")
+                [void]$sb.AppendLine("}")
+                [void]$sb.AppendLine('')
+            }
         }
     }
 
