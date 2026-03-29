@@ -10,29 +10,25 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   psscriptanalyzer:
     name: PSScriptAnalyzer
     runs-on: ubuntu-latest
-    permissions:
-      security-events: write
     steps:
       - uses: actions/checkout@v4
 
       - name: Run PSScriptAnalyzer
-        uses: microsoft/psscriptanalyzer-action@v1.1
-        with:
-          path: '*.ps1'
-          recurse: true
-          output: results.sarif
-
-      - name: Upload SARIF
-        if: always()
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: results.sarif
+        shell: pwsh
+        run: |
+          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+          $results = Invoke-ScriptAnalyzer -Path . -Recurse -ReportSummary
+          $results | Format-Table -AutoSize
+          if ($results | Where-Object { $_.Severity -eq 'Error' }) {
+            Write-Error "PSScriptAnalyzer found errors"
+            exit 1
+          }
+          Write-Host "✅ PSScriptAnalyzer passed — no errors found"
 
   safety-audit:
     name: Script Safety Audit
@@ -174,8 +170,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
     permissions:
-      security-events: write
-      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -187,8 +182,3 @@ jobs:
           results_file: scorecard-results.json
           results_format: json
           publish_results: true
-
-      - name: Upload Scorecard SARIF
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: scorecard-results.json

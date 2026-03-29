@@ -457,7 +457,7 @@ The generated scripts may contain **sensitive information from your old machine*
 ### The script itself is safe
 
 The main `Migrate-Laptop.ps1` script:
-- Never connects to the internet
+- Never connects to the internet (the generated `Install-Software.ps1` uses `winget` which downloads from the internet — but that's a separate script you review and run yourself)
 - Never reads SSH private key contents (only file names)
 - Never reads browser passwords
 - Never deletes or modifies files on your old laptop

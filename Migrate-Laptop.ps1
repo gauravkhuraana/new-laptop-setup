@@ -2767,7 +2767,8 @@ function Show-AboutTool {
 
     Write-Host "  SAFETY GUARANTEES" -ForegroundColor Green
     Write-Host "  ─────────────────" -ForegroundColor Green
-    Write-Host "    - Never connects to the internet (zero network calls)" -ForegroundColor White
+    Write-Host "    - This script never connects to the internet (zero network calls)" -ForegroundColor White
+    Write-Host "      (Generated Install-Software.ps1 uses winget, which downloads from the internet)" -ForegroundColor DarkGray
     Write-Host "    - Never reads SSH private key contents" -ForegroundColor White
     Write-Host "    - Never reads browser passwords" -ForegroundColor White
     Write-Host "    - Never deletes or modifies files (except option [7] with double confirm)" -ForegroundColor White

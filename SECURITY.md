@@ -22,7 +22,7 @@ Here's exactly what happens with your data:
 
 ### What it NEVER does (in scan/migrate modes 1-4)
 
-- **Never connects to the internet** — no API calls, no telemetry, no analytics, no phoning home
+- **Never connects to the internet** — no API calls, no telemetry, no analytics, no phoning home. Note: the generated `Install-Software.ps1` uses `winget` which downloads software from the internet, but that's a separate script you review and run on the new laptop
 - **Never reads SSH private key contents** — only lists file names in `.ssh/`
 - **Never reads browser passwords** — only detects if bookmark files exist
 - **Never reads Credential Manager** — only flags it as a manual step
