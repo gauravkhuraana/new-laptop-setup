@@ -2019,6 +2019,15 @@ function Write-TransferScript {
     [void]$sb.AppendLine("`$commonXF = @($xfArgs)")
     [void]$sb.AppendLine("`$roboFlags = @('/E', '/MT:16', '/R:1', '/W:1', '/NP')")
     [void]$sb.AppendLine("`$logFile = Join-Path `$destBase 'transfer-log.txt'")
+    [void]$sb.AppendLine("`$script:TransferStart = Get-Date")
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('function Show-Elapsed {')
+    [void]$sb.AppendLine('    param([DateTime]$Start)')
+    [void]$sb.AppendLine('    $elapsed = (Get-Date) - $Start')
+    [void]$sb.AppendLine('    if ($elapsed.TotalHours -ge 1) { return "{0}h {1}m" -f [int]$elapsed.TotalHours, $elapsed.Minutes }')
+    [void]$sb.AppendLine('    if ($elapsed.TotalMinutes -ge 1) { return "{0}m {1}s" -f [int]$elapsed.TotalMinutes, $elapsed.Seconds }')
+    [void]$sb.AppendLine('    return "{0}s" -f [int]$elapsed.TotalSeconds')
+    [void]$sb.AppendLine('}')
     [void]$sb.AppendLine('')
     [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
     [void]$sb.AppendLine('# FOLDER STRUCTURE')
@@ -2079,9 +2088,10 @@ function Write-TransferScript {
             [void]$sb.AppendLine("if (`$confirm$safeName -notmatch '^[nN]') {")
         }
         [void]$sb.AppendLine("    Write-Host `"  Transferring $($f.Name)...`" -ForegroundColor Yellow")
+        [void]$sb.AppendLine("    `$stepStart = Get-Date")
         [void]$sb.AppendLine("    robocopy `"$($f.Path)`" `"`$destBase\C\$($f.Name)`" `$roboFlags /XD `$commonXD /XF `$commonXF /LOG+:`$logFile")
         [void]$sb.AppendLine("    Save-Progress '$stepId' 'done'")
-        [void]$sb.AppendLine("    Write-Host `"  $($f.Name) transfer complete.`" -ForegroundColor Green")
+        [void]$sb.AppendLine("    Write-Host `"  $($f.Name) done in `$(Show-Elapsed `$stepStart)`" -ForegroundColor Green")
         [void]$sb.AppendLine("}")
         [void]$sb.AppendLine("}")  # close else block
         [void]$sb.AppendLine('')
@@ -2127,9 +2137,10 @@ function Write-TransferScript {
                 [void]$sb.AppendLine("`$confirm$safeName = Read-Host `"  Transfer C:\$($f.Name)? [Y/n]`"")
                 [void]$sb.AppendLine("if (`$confirm$safeName -notmatch '^[nN]') {")
                 [void]$sb.AppendLine("    Write-Host `"  Transferring C:\$($f.Name)...`" -ForegroundColor Yellow")
+                [void]$sb.AppendLine("    `$stepStart = Get-Date")
                 [void]$sb.AppendLine("    robocopy `"$($f.Path)`" `"`$destBase\C\$($f.Name)`" `$roboFlags /XD `$commonXD /XF `$commonXF /LOG+:`$logFile")
                 [void]$sb.AppendLine("    Save-Progress '$stepId' 'done'")
-                [void]$sb.AppendLine("    Write-Host `"  C:\$($f.Name) done.`" -ForegroundColor Green")
+                [void]$sb.AppendLine("    Write-Host `"  C:\$($f.Name) done in `$(Show-Elapsed `$stepStart)`" -ForegroundColor Green")
                 [void]$sb.AppendLine("}")
                 [void]$sb.AppendLine("}")  # close else
                 [void]$sb.AppendLine('')
@@ -2175,7 +2186,9 @@ function Write-TransferScript {
                     [void]$sb.AppendLine("    if (Test-StepDone '$stepId') { Write-Host `"    [SKIP] $($f.Name) — already transferred`" -ForegroundColor DarkGray }")
                     [void]$sb.AppendLine("    else {")
                     [void]$sb.AppendLine("        Write-Host `"  Transferring $($drv):\$($f.Name)...`" -ForegroundColor Yellow")
+                    [void]$sb.AppendLine("        `$stepStart = Get-Date")
                     [void]$sb.AppendLine("        robocopy `"$($f.Path)`" `"`$destBase\$($f.Drive)\$($f.Name)`" `$roboFlags /XD `$commonXD /XF `$commonXF /LOG+:`$logFile")
+                    [void]$sb.AppendLine("        Write-Host `"    done in `$(Show-Elapsed `$stepStart)`" -ForegroundColor DarkGray")
                     [void]$sb.AppendLine("        Save-Progress '$stepId' 'done'")
                     [void]$sb.AppendLine("    }")
                 }
@@ -2187,7 +2200,7 @@ function Write-TransferScript {
         }
     }
 
-    [void]$sb.AppendLine('Write-Host "`nData transfer complete! Check transfer-log.txt for details.`n" -ForegroundColor Green')
+    [void]$sb.AppendLine('Write-Host "`nData transfer complete in $(Show-Elapsed $script:TransferStart)! Check transfer-log.txt for details.`n" -ForegroundColor Green')
 
     Set-Content -Path $ScriptPath -Value $sb.ToString() -Encoding UTF8
     Write-Log "Transfer script saved: $ScriptPath" -Level Success
