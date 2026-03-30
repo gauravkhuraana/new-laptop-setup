@@ -3204,6 +3204,30 @@ function Show-ManualTips {
     Write-Host "    - DaVinci Resolve: Export project archive (File > Export Project Archive)" -ForegroundColor Gray
     Write-Host "    - Filmora: Copy project files (.wfp), reinstall the app" -ForegroundColor Gray
     Write-Host ""
+    Write-Host "  Utilities & Tools:" -ForegroundColor Cyan
+    Write-Host "    - ShareX: Application Settings > Export > saves .sxie file" -ForegroundColor Gray
+    Write-Host "    - PowerToys: Settings > General > Backup & Restore > Create Backup" -ForegroundColor Gray
+    Write-Host "    - Notepad++: Copy %APPDATA%\Notepad++\ (config, plugins, themes)" -ForegroundColor Gray
+    Write-Host "    - Sublime Text: Copy %APPDATA%\Sublime Text\Packages\User\" -ForegroundColor Gray
+    Write-Host "      (settings.json, keybindings, installed packages list)" -ForegroundColor DarkGray
+    Write-Host "    - Obsidian: Copy your vault folder. Plugins in .obsidian/ inside vault" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  Database & API Tools:" -ForegroundColor Cyan
+    Write-Host "    - DBeaver: File > Export > export connections. Copy %APPDATA%\DBeaverData\" -ForegroundColor Gray
+    Write-Host "    - HeidiSQL: File > Export Settings (or copy registry HKCU\Software\HeidiSQL)" -ForegroundColor Gray
+    Write-Host "    - pgAdmin: Servers > right-click > Export Servers (saves as JSON)" -ForegroundColor Gray
+    Write-Host "    - MongoDB Compass: Export saved connections from connection list" -ForegroundColor Gray
+    Write-Host "    - Postman: Sign in — collections sync. Or File > Export Collection" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  FTP / Remote Tools:" -ForegroundColor Cyan
+    Write-Host "    - FileZilla: Copy %APPDATA%\FileZilla\ (sitemanager.xml = saved servers)" -ForegroundColor Gray
+    Write-Host "    - WinSCP: Options > Preferences > Storage > Export to INI file" -ForegroundColor Gray
+    Write-Host "    - Fiddler: Copy %USERPROFILE%\Documents\Fiddler2\ (custom rules)" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  Cloud Apps (no export needed — sign in):" -ForegroundColor Cyan
+    Write-Host "    - Spotify, Slack, Discord, Zoom, Teams: Sign in → data loads from cloud" -ForegroundColor Gray
+    Write-Host "    - Zoom local recordings: Copy from Documents\Zoom\ before wiping" -ForegroundColor Gray
+    Write-Host ""
 
     Read-Host "  Press Enter for developer-specific tips..."
 
