@@ -1335,9 +1335,9 @@ function Write-MarkdownReport {
     [void]$sb.AppendLine("")
     [void]$sb.AppendLine("| Setting | Action | Details |")
     [void]$sb.AppendLine("|---------|--------|---------|")
-    [void]$sb.AppendLine("| Browser bookmarks/passwords | \`\`Auto-sync\`\` | Sign into Chrome/Edge/Firefox — syncs automatically |")
-    [void]$sb.AppendLine("| VS Code settings + extensions | \`\`Auto-sync\`\` | Enable Settings Sync (Ctrl+Shift+P > Settings Sync: Turn On) |")
-    [void]$sb.AppendLine("| OneDrive files | \`\`Auto-sync\`\` | Sign into OneDrive — files sync automatically |")
+    [void]$sb.AppendLine("| Browser bookmarks/passwords | \`\`Sign in to sync\`\` | Sign into Chrome/Edge/Firefox — syncs after sign-in |")
+    [void]$sb.AppendLine("| VS Code settings + extensions | \`\`Enable sync\`\` | Ctrl+Shift+P > Settings Sync: Turn On (sign in with GitHub/Microsoft) |")
+    [void]$sb.AppendLine("| OneDrive files | \`\`Sign in to sync\`\` | Sign into OneDrive — files sync after sign-in |")
     [void]$sb.AppendLine("| WiFi passwords | \`\`Auto-sync\`\` | Syncs via Microsoft account (if signed in) |")
     [void]$sb.AppendLine("| Theme, wallpaper, language | \`\`Auto-sync\`\` | Syncs via Microsoft account |")
     [void]$sb.AppendLine("| Windows Terminal settings | \`\`Auto-sync\`\` | Syncs via Microsoft account |")
@@ -3439,6 +3439,29 @@ Write-Host "    1. Open and review each .ps1 file — they are plain readable sc
 Write-Host "    2. Copy the migration-output folder to the new laptop" -ForegroundColor White
 Write-Host "    3. Run scripts one at a time (each asks confirmation before acting)" -ForegroundColor White
 Write-Host "    4. Verify: .\Migrate-Laptop.ps1 → option [6] Post-Migration Checklist" -ForegroundColor White
+Write-Host ""
+Write-Host "  AFTER INSTALLING SOFTWARE — SIGN IN TO ENABLE SYNC:" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "   App / Setting              What to do on NEW laptop" -ForegroundColor DarkGray
+Write-Host "   ─────────────────────────  ──────────────────────────────────────────" -ForegroundColor DarkGray
+Write-Host "   VS Code                    Ctrl+Shift+P → 'Settings Sync: Turn On'" -ForegroundColor White
+Write-Host "                              Sign in with GitHub or Microsoft account" -ForegroundColor DarkGray
+Write-Host "   Chrome                     Sign in with Google account → sync starts" -ForegroundColor White
+Write-Host "   Edge                       Sign in with Microsoft account → sync starts" -ForegroundColor White
+Write-Host "   Firefox                    Sign in with Firefox account → sync starts" -ForegroundColor White
+Write-Host "   OneDrive                   Sign in → Desktop/Docs/Pictures sync back" -ForegroundColor White
+Write-Host "   Teams / Outlook            Sign in with work account → data loads" -ForegroundColor White
+Write-Host "   Windows (theme/WiFi)       Already synced if using same Microsoft account" -ForegroundColor DarkGray
+Write-Host ""
+Write-Host "   These need MANUAL action (scripts handle them):" -ForegroundColor Yellow
+Write-Host "   ─────────────────────────  ──────────────────────────────────────────" -ForegroundColor DarkGray
+Write-Host "   Git config (.gitconfig)    Restored by Restore-Configs.ps1" -ForegroundColor White
+Write-Host "   SSH keys                   Copy via USB → fix permissions (icacls)" -ForegroundColor White
+Write-Host "   Environment variables      Restored by Restore-Configs.ps1" -ForegroundColor White
+Write-Host "   PowerShell profile         Restored by Restore-Configs.ps1" -ForegroundColor White
+Write-Host "   npm/pip global packages    Restored by Restore-Configs.ps1" -ForegroundColor White
+Write-Host "   Outlook rules              File → Manage Rules → Import (.rwz file)" -ForegroundColor White
+Write-Host "   2FA / Authenticator        Transfer on phone BEFORE wiping old laptop" -ForegroundColor Red
 Write-Host ""
 Write-Host "  ┌──────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
 Write-Host "  │  ⚠  BEFORE YOU SHARE OR TRANSFER                        │" -ForegroundColor Yellow
