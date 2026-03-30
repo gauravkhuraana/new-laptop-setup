@@ -301,6 +301,35 @@ $script:SystemFolders = @(
     'System Volume Information', 'PerfLogs'
 )
 
+# App-specific config migration tips — shown when these apps are detected
+# Key = regex pattern to match against installed app names
+$script:AppConfigTips = @(
+    @{ Pattern = "ShareX";              Tip = "Export: ShareX → Application Settings → Export → saves .sxie file. Import on new laptop." }
+    @{ Pattern = "Sublime Text";        Tip = "Copy: %APPDATA%\Sublime Text\Packages\User\ (settings, keybindings, installed packages list)" }
+    @{ Pattern = "Notepad\+\+";         Tip = "Copy: %APPDATA%\Notepad++\ (config.xml, plugins, themes, session.xml)" }
+    @{ Pattern = "OBS Studio";          Tip = "Copy: %APPDATA%\obs-studio\ (scenes, profiles, plugin configs)" }
+    @{ Pattern = "Postman";             Tip = "Sign in with Postman account — collections and environments sync automatically" }
+    @{ Pattern = "DBeaver";             Tip = "Export: File → Export → export connections. Copy: %APPDATA%\DBeaverData\ for full config" }
+    @{ Pattern = "HeidiSQL";            Tip = "Export: File → Export Settings. Or copy registry key HKCU\Software\HeidiSQL" }
+    @{ Pattern = "FileZilla";           Tip = "Copy: %APPDATA%\FileZilla\ (sitemanager.xml = saved servers, filezilla.xml = settings)" }
+    @{ Pattern = "WinSCP";              Tip = "Export: Options → Preferences → Storage → Export to INI file" }
+    @{ Pattern = "Docker Desktop";      Tip = "Images don't transfer — pull again. docker-compose.yml files are in your projects. Export volumes manually." }
+    @{ Pattern = "Fiddler";             Tip = "Copy: %USERPROFILE%\Documents\Fiddler2\ (custom rules, scripts)" }
+    @{ Pattern = "PowerToys";           Tip = "Export: PowerToys Settings → General → Backup & Restore → Create Backup" }
+    @{ Pattern = "KeePass";             Tip = "Copy your .kdbx database file via USB. Never over network unencrypted." }
+    @{ Pattern = "Bitwarden";           Tip = "Sign in on new laptop — vault syncs automatically. Export not needed." }
+    @{ Pattern = "1Password";           Tip = "Sign in on new laptop — vault syncs automatically. Export not needed." }
+    @{ Pattern = "Obsidian";            Tip = "Copy your vault folder (wherever your .md files are). Plugins are inside .obsidian/ in the vault." }
+    @{ Pattern = "IntelliJ IDEA";       Tip = "File → Manage IDE Settings → Export Settings. Or enable Settings Sync (JetBrains account)." }
+    @{ Pattern = "Visual Studio (Community|Professional|Enterprise)"; Tip = "Sign in with Microsoft account — settings sync. Extensions: Extensions → Manage → export .vsext file" }
+    @{ Pattern = "pgAdmin";             Tip = "Export: Servers → right-click → Export Servers. Saves server list as JSON." }
+    @{ Pattern = "MongoDB Compass";     Tip = "Export: Favorites/saved connections → export as JSON from connection list" }
+    @{ Pattern = "Spotify";             Tip = "Sign in — playlists and library sync automatically. No export needed." }
+    @{ Pattern = "Zoom";                Tip = "Sign in — settings are cloud-synced. Local recordings: copy from Documents\Zoom\" }
+    @{ Pattern = "Slack";               Tip = "Sign in to each workspace — history loads from cloud. No export needed." }
+    @{ Pattern = "Discord";             Tip = "Sign in — servers and settings sync. No export needed." }
+)
+
 # ═══════════════════════════════════════════════════════════════════════════
 # SECTION 3: SCAN FUNCTIONS (Phase 1)
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1442,6 +1471,27 @@ function Write-MarkdownReport {
         [void]$sb.AppendLine("")
     }
 
+    # App-specific config migration tips
+    $matchedTips = @()
+    foreach ($tip in $script:AppConfigTips) {
+        $matchedApps = @($ScanData.Software | Where-Object { $_.Name -imatch $tip.Pattern })
+        if ($matchedApps.Count -gt 0) {
+            $matchedTips += @{ App = $matchedApps[0].Name; Tip = $tip.Tip }
+        }
+    }
+    if ($matchedTips.Count -gt 0) {
+        [void]$sb.AppendLine("## App-Specific Settings to Export ($($matchedTips.Count) apps)")
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine("> These apps were detected on your machine and have settings/data that don't sync automatically. Export or copy before migrating.")
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine("| App | How to migrate settings |")
+        [void]$sb.AppendLine("|-----|------------------------|")
+        foreach ($mt in $matchedTips) {
+            [void]$sb.AppendLine("| **$($mt.App)** | $($mt.Tip) |")
+        }
+        [void]$sb.AppendLine("")
+    }
+
     # Manual steps reminder
     [void]$sb.AppendLine("## Manual Steps Required")
     [void]$sb.AppendLine("")
@@ -2523,6 +2573,22 @@ function Write-RestoreConfigsScript {
     [void]$sb.AppendLine('Write-Host "  3. Sign into browsers to sync bookmarks/passwords"')
     [void]$sb.AppendLine('Write-Host "  4. Check VS Code extensions and settings"')
     [void]$sb.AppendLine('Write-Host ""')
+
+    # App-specific config tips for detected software
+    $matchedTips = @()
+    foreach ($tip in $script:AppConfigTips) {
+        $matchedApps = @($ScanData.Software | Where-Object { $_.Name -imatch $tip.Pattern })
+        if ($matchedApps.Count -gt 0) {
+            $matchedTips += @{ App = $matchedApps[0].Name; Tip = $tip.Tip }
+        }
+    }
+    if ($matchedTips.Count -gt 0) {
+        [void]$sb.AppendLine('Write-Host "  App settings that need manual export/import:" -ForegroundColor Yellow')
+        foreach ($mt in $matchedTips) {
+            [void]$sb.AppendLine("Write-Host `"    $($mt.App): $($mt.Tip)`" -ForegroundColor DarkGray")
+        }
+        [void]$sb.AppendLine('Write-Host ""')
+    }
 
     Set-Content -Path $ScriptPath -Value $sb.ToString() -Encoding UTF8
     Write-Log "Config restore script saved: $ScriptPath" -Level Success
