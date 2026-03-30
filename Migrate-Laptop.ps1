@@ -3346,10 +3346,34 @@ Write-MarkdownReport -ReportPath $mdPath   -ScanData $scanData
 Write-HtmlReport     -ReportPath $htmlPath -ScanData $scanData
 
 Write-Host ""
-Write-Host "  ✓ Scan complete!" -ForegroundColor Green
-Write-Host "    JSON cache:  $cachePath" -ForegroundColor Gray
-Write-Host "    MD report:   $mdPath" -ForegroundColor Gray
-Write-Host "    HTML report: $htmlPath" -ForegroundColor Gray
+Write-Host "  ╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
+Write-Host "  ║                Phase 1 Complete — Scan Done!                 ║" -ForegroundColor Green
+Write-Host "  ╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Green
+Write-Host ""
+
+# Show what was found
+$devCount = @($scanData.Software | Where-Object { $_.IsDev }).Count
+$genCount = @($scanData.Software | Where-Object { $_.IsGeneral }).Count
+$totalSw = $scanData.Software.Count
+$configFound = @($scanData.Configs.PSObject.Properties | Where-Object { $_.Value -and $_.Value.Found }).Count
+$totalFolders = $scanData.UserFolders.Count + $scanData.CustomFolders.Count
+$totalDrives = $scanData.Drives.Count
+
+Write-Host "  WHAT WAS FOUND:" -ForegroundColor Cyan
+Write-Host "    Drives:     $totalDrives drives scanned" -ForegroundColor White
+Write-Host "    Software:   $totalSw apps ($devCount developer, $genCount general)" -ForegroundColor White
+Write-Host "    Configs:    $configFound configurations captured" -ForegroundColor White
+Write-Host "    Folders:    $totalFolders data folders identified" -ForegroundColor White
+Write-Host ""
+Write-Host "  WHAT WAS CREATED (open these to verify):" -ForegroundColor Cyan
+Write-Host "    📊 HTML Report  → $htmlPath" -ForegroundColor White
+Write-Host "       Open in browser — interactive, searchable, with tabs for each section" -ForegroundColor DarkGray
+Write-Host "    📝 MD Report    → $mdPath" -ForegroundColor White
+Write-Host "       Same data in Markdown — readable in any text editor or GitHub" -ForegroundColor DarkGray
+Write-Host "    💾 Scan Cache   → $cachePath" -ForegroundColor White
+Write-Host "       Raw JSON data — use to regenerate scripts later without re-scanning" -ForegroundColor DarkGray
+Write-Host "    📋 Log File     → $($script:LogFilePath)" -ForegroundColor White
+Write-Host "       Detailed log of everything the scan did, step by step" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "  ┌──────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
 Write-Host "  │  ⚠  SENSITIVE DATA NOTICE                               │" -ForegroundColor Yellow
@@ -3383,36 +3407,38 @@ Write-AiReviewFile         -FilePath   (Join-Path $OutputDir "migration-for-ai-r
 
 Write-Host ""
 Write-Host "  ╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
-Write-Host "  ║               Scan Complete — Scripts Ready!                 ║" -ForegroundColor Green
+Write-Host "  ║          Phase 2 Complete — Scripts Ready!                   ║" -ForegroundColor Green
 Write-Host "  ╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Green
 Write-Host ""
 Write-Host "  Nothing was installed, copied, or deleted. You are in control." -ForegroundColor DarkGray
 Write-Host ""
-Write-Host "  Generated files in: $OutputDir" -ForegroundColor Cyan
+Write-Host "  WHAT WAS GENERATED (open these to review before running):" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  📋 STEP A: Review the reports" -ForegroundColor White
-Write-Host "     Open scan-report-$($script:RunDate).html in your browser" -ForegroundColor Gray
-Write-Host "     Check the software list, configs, and data folders" -ForegroundColor Gray
+Write-Host "    📦 Install-Software.ps1" -ForegroundColor White
+Write-Host "       Open this file → see every app that will be installed via winget" -ForegroundColor DarkGray
+Write-Host "       Comment out (#) any app you don't want. Run on NEW laptop." -ForegroundColor DarkGray
 Write-Host ""
-Write-Host "  📦 STEP B: Run scripts one at a time (you choose which ones)" -ForegroundColor White
+Write-Host "    📂 Transfer-Data.ps1" -ForegroundColor White
+Write-Host "       Open this file → see every folder that will be copied" -ForegroundColor DarkGray
+Write-Host "       Shows sizes, OneDrive status, drive layout. Run on OLD laptop." -ForegroundColor DarkGray
 Write-Host ""
-Write-Host "     B1. Install-Software.ps1  — Install apps via winget" -ForegroundColor Gray
-Write-Host "         Run on NEW laptop. Each app asks for confirmation." -ForegroundColor DarkGray
-Write-Host "         You can skip this if you just want to transfer data." -ForegroundColor DarkGray
+Write-Host "    ⚙️  Restore-Configs.ps1" -ForegroundColor White
+Write-Host "       Open this file → see your .gitconfig, env vars, VS Code extensions" -ForegroundColor DarkGray
+Write-Host "       Check for secrets/tokens before transferring! Run on NEW laptop." -ForegroundColor DarkGray
 Write-Host ""
-Write-Host "     B2. Transfer-Data.ps1     — Copy your data folders" -ForegroundColor Gray
-Write-Host "         Run on OLD laptop. Each folder asks for confirmation." -ForegroundColor DarkGray
-Write-Host "         You can skip this if you only want to install software." -ForegroundColor DarkGray
+Write-Host "    🤖 migration-for-ai-review.md" -ForegroundColor White
+Write-Host "       Open this file → paste into ChatGPT/Copilot for personalized advice" -ForegroundColor DarkGray
 Write-Host ""
-Write-Host "     B3. Restore-Configs.ps1   — Restore Git, VS Code, env vars" -ForegroundColor Gray
-Write-Host "         Run on NEW laptop. Each config asks for confirmation." -ForegroundColor DarkGray
-Write-Host "         You can skip this if you prefer manual setup." -ForegroundColor DarkGray
+Write-Host "    📊 scan-report-$($script:RunDate).html" -ForegroundColor White
+Write-Host "       Open in browser → interactive dashboard of everything found" -ForegroundColor DarkGray
 Write-Host ""
-Write-Host "  ✅ STEP C: Verify everything works" -ForegroundColor White
-Write-Host "     Run: .\Migrate-Laptop.ps1 → choose [4] Post-Migration Checklist" -ForegroundColor Gray
+Write-Host "  All files are in: $OutputDir" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  🤖 OPTIONAL: Paste migration-for-ai-review.md into ChatGPT/Copilot" -ForegroundColor White
-Write-Host "     for personalized advice on your setup" -ForegroundColor Gray
+Write-Host "  NEXT STEPS:" -ForegroundColor Cyan
+Write-Host "    1. Open and review each .ps1 file — they are plain readable scripts" -ForegroundColor White
+Write-Host "    2. Copy the migration-output folder to the new laptop" -ForegroundColor White
+Write-Host "    3. Run scripts one at a time (each asks confirmation before acting)" -ForegroundColor White
+Write-Host "    4. Verify: .\Migrate-Laptop.ps1 → option [6] Post-Migration Checklist" -ForegroundColor White
 Write-Host ""
 Write-Host "  ┌──────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
 Write-Host "  │  ⚠  BEFORE YOU SHARE OR TRANSFER                        │" -ForegroundColor Yellow
