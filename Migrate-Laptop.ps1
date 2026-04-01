@@ -1226,7 +1226,7 @@ function Get-UserConfigs {
         Sync           = "export"
         SyncNote       = "These are captured and can be restored via Restore-Configs.ps1"
     }
-    if ($showExtensions -ne $null) {
+    if ($null -ne $showExtensions) {
         Write-Log "File Explorer: ShowExtensions=$showExtensions, ShowHidden=$showHidden, LaunchTo=$launchTo" -Level Info
     }
 
@@ -2220,7 +2220,7 @@ function Write-TransferScript {
     [void]$sb.AppendLine("`$commonXD = @($xdArgs)")
     [void]$sb.AppendLine("`$commonXF = @($xfArgs)")
     [void]$sb.AppendLine("`$roboFlags = @('/E', '/MT:16', '/R:1', '/W:1', '/NP')")
-    [void]$sb.AppendLine("`$logFile = Join-Path `$PSScriptRoot `"transfer-log-`$(Get-Date -Format 'yyyy-MM-dd-HHmmss').txt`"")
+    [void]$sb.AppendLine('`$logFile = Join-Path `$PSScriptRoot "transfer-log-`$(Get-Date -Format ''yyyy-MM-dd-HHmmss'').txt"')
     [void]$sb.AppendLine("`$script:TransferStart = Get-Date")
     [void]$sb.AppendLine('')
     [void]$sb.AppendLine('function Show-Elapsed {')
@@ -2291,7 +2291,7 @@ function Write-TransferScript {
         [void]$sb.AppendLine('Write-Host "  │                                                          │" -ForegroundColor Blue')
         [void]$sb.AppendLine('Write-Host "  │  OneDrive-synced folders detected:                       │" -ForegroundColor Blue')
         foreach ($odf in $oneDriveFolders) {
-            [void]$sb.AppendLine("Write-Host `"  │    $($odf.Name) → $($odf.Path)`" -ForegroundColor DarkCyan")
+            [void]$sb.AppendLine(('Write-Host "  │    {0} → {1}" -ForegroundColor DarkCyan' -f $odf.Name, $odf.Path))
         }
         [void]$sb.AppendLine('Write-Host "  │                                                          │" -ForegroundColor Blue')
         [void]$sb.AppendLine('Write-Host "  │  You can SKIP these — or copy them as a backup.          │" -ForegroundColor Blue')
@@ -2307,23 +2307,23 @@ function Write-TransferScript {
         $safeName = $f.Name -replace '[^a-zA-Z0-9]', ''
         $stepId = "folder-$safeName"
         $oneDriveTag = if ($f.IsOneDrive) { " [ONEDRIVE — syncs automatically]" } else { "" }
-        [void]$sb.AppendLine("# $($f.Name): $($f.FileCount) files, $($f.SizeText)$oneDriveTag")
-        [void]$sb.AppendLine("if (Test-StepDone '$stepId') { Write-Host `"  [SKIP] $($f.Name) — already transferred`" -ForegroundColor DarkGray }")
+        [void]$sb.AppendLine(('# {0}: {1} files, {2}{3}' -f $f.Name, $f.FileCount, $f.SizeText, $oneDriveTag))
+        [void]$sb.AppendLine(('if (Test-StepDone ''{0}'') {{ Write-Host "  [SKIP] {1} — already transferred" -ForegroundColor DarkGray }}' -f $stepId, $f.Name))
         [void]$sb.AppendLine("else {")
         if ($f.IsOneDrive) {
-            [void]$sb.AppendLine("Write-Host `"  ☁ $($f.Name) is synced to OneDrive — it will sync automatically on the new laptop.`" -ForegroundColor Blue")
-            [void]$sb.AppendLine("`$confirm$safeName = Read-Host `"  Copy $($f.Name) anyway as backup ($($f.SizeText))? [y/N]`"")
-            [void]$sb.AppendLine("if (`$confirm$safeName -match '^[yY]') {")
+            [void]$sb.AppendLine(('Write-Host "  ☁ {0} is synced to OneDrive — it will sync automatically on the new laptop." -ForegroundColor Blue' -f $f.Name))
+            [void]$sb.AppendLine(('`$confirm{0} = Read-Host "  Copy {1} anyway as backup ({2})? [y/N]"' -f $safeName, $f.Name, $f.SizeText))
+            [void]$sb.AppendLine(('if (`$confirm{0} -match ''^[yY]'') {{' -f $safeName))
         } else {
-            [void]$sb.AppendLine("`$confirm$safeName = Read-Host `"Transfer $($f.Name) ($($f.SizeText))? [Y/n]`"")
-            [void]$sb.AppendLine("if (`$confirm$safeName -notmatch '^[nN]') {")
+            [void]$sb.AppendLine(('`$confirm{0} = Read-Host "Transfer {1} ({2})? [Y/n]"' -f $safeName, $f.Name, $f.SizeText))
+            [void]$sb.AppendLine(('if (`$confirm{0} -notmatch ''^[nN]'') {{' -f $safeName))
         }
-        [void]$sb.AppendLine("    Write-Host `"  Transferring $($f.Name)...`" -ForegroundColor Yellow")
+        [void]$sb.AppendLine(('    Write-Host "  Transferring {0}..." -ForegroundColor Yellow' -f $f.Name))
         [void]$sb.AppendLine("    `$stepStart = Get-Date")
-        [void]$sb.AppendLine("    robocopy `"$($f.Path)`" `"`$destBase\C\$($f.Name)`" `$roboFlags /XD `$commonXD /XF `$commonXF /LOG+:`$logFile")
-        [void]$sb.AppendLine("    if (Test-RobocopyResult '$($f.Name)') {")
-        [void]$sb.AppendLine("        Save-Progress '$stepId' 'done'")
-        [void]$sb.AppendLine("        Write-Host `"  $($f.Name) done in `$(Show-Elapsed `$stepStart)`" -ForegroundColor Green")
+        [void]$sb.AppendLine(('    robocopy "{0}" "`$destBase\C\{1}" `$roboFlags /XD `$commonXD /XF `$commonXF /LOG+:`$logFile' -f $f.Path, $f.Name))
+        [void]$sb.AppendLine(('    if (Test-RobocopyResult ''{0}'') {{' -f $f.Name))
+        [void]$sb.AppendLine(('        Save-Progress ''{0}'' ''done''' -f $stepId))
+        [void]$sb.AppendLine(('        Write-Host "  {0} done in `$(Show-Elapsed `$stepStart)" -ForegroundColor Green' -f $f.Name))
         [void]$sb.AppendLine("    }")
         [void]$sb.AppendLine("}")
         [void]$sb.AppendLine("}")  # close else block
@@ -2356,12 +2356,14 @@ function Write-TransferScript {
 
         # Emit other drives first (D, E, etc.), then C custom — order: non-C sorted, then C
         $otherDrives = $driveGroups.Keys | Where-Object { $_ -ne 'C' } | Sort-Object
-        $driveOrder = @($otherDrives) + @(if ($driveGroups.ContainsKey('C')) { 'C' })
+        $driveOrder = @($otherDrives)
+        if ($driveGroups.ContainsKey('C')) {
+            $driveOrder += 'C'
+        }
 
         foreach ($drv in $driveOrder) {
             $folders = $driveGroups[$drv]
             $label = if ($drv -eq 'C') { 'C: custom' } else { "$($drv):" }
-            $destDrive = $drv
             $varName = "folders$($drv -replace '[^a-zA-Z0-9]', '')"
 
             [void]$sb.AppendLine("# ── $label Drive folders ──")
@@ -2420,7 +2422,7 @@ function Write-TransferScript {
         foreach ($drv in $driveOrder) {
             $label = if ($drv -eq 'C') { 'C: custom' } else { "$($drv): Drive" }
             $varName = "folders$($drv -replace '[^a-zA-Z0-9]', '')"
-            [void]$sb.AppendLine("Transfer-DriveFolders -DriveLabel '$label' -Folders `$$varName -DestDrive '$drv'")
+            [void]$sb.AppendLine(('Transfer-DriveFolders -DriveLabel ''{0}'' -Folders ${1} -DestDrive ''{2}''' -f $label, $varName, $drv))
         }
     }
 
@@ -2509,11 +2511,11 @@ function Write-RestoreConfigsScript {
         [void]$sb.AppendLine('# ── VS Code Extensions ──')
         [void]$sb.AppendLine('if (Test-StepDone ''vscode-ext'') { Write-Host "  [SKIP] VS Code extensions - already installed" -ForegroundColor DarkGray }')
         [void]$sb.AppendLine('else {')
-        [void]$sb.AppendLine("`$confirm = Read-Host `"Install VS Code extensions ($($ScanData.Configs.VSCode.Extensions.Count) extensions)? [Y/n]`")
+        [void]$sb.AppendLine(('`$confirm = Read-Host "Install VS Code extensions ({0} extensions)? [Y/n]"' -f $ScanData.Configs.VSCode.Extensions.Count))
         [void]$sb.AppendLine('if ($confirm -notmatch ''^[nN]'') {')
         [void]$sb.AppendLine('    if (Get-Command code -ErrorAction SilentlyContinue) {')
         foreach ($ext in $ScanData.Configs.VSCode.Extensions) {
-            [void]$sb.AppendLine("        code --install-extension `"$ext`"")
+            [void]$sb.AppendLine(('        code --install-extension "{0}"' -f $ext))
         }
         [void]$sb.AppendLine('        Write-Host "  VS Code extensions installed." -ForegroundColor Green')
         [void]$sb.AppendLine("        Save-Progress 'vscode-ext' 'done'")
@@ -2525,7 +2527,6 @@ function Write-RestoreConfigsScript {
         [void]$sb.AppendLine('')
     }
 
-    # VS Code settings
     if ($ScanData.Configs.VSCode.SettingsExist) {
         [void]$sb.AppendLine('# ── VS Code Settings ──')
         [void]$sb.AppendLine('# Your VS Code settings.json was found at:')
@@ -3209,8 +3210,8 @@ function Start-OldLaptopCleanup {
             $wifiProfiles = & netsh wlan show profiles 2>$null |
                 Select-String 'All User Profile\s*:\s*(.+)' |
                 ForEach-Object { $_.Matches[0].Groups[1].Value.Trim() }
-            foreach ($profile in $wifiProfiles) {
-                & netsh wlan delete profile name="$profile" 2>$null | Out-Null
+            foreach ($wifiProfile in $wifiProfiles) {
+                & netsh wlan delete profile name="$wifiProfile" 2>$null | Out-Null
             }
             Write-Log "Deleted $($wifiProfiles.Count) WiFi profiles" -Level Success
         } catch {
