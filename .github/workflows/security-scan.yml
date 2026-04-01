@@ -47,7 +47,7 @@ jobs:
           )
           if ($errors.Count -gt 0) {
             $errors | ForEach-Object {
-              Write-Host "::error file=Migrate-Laptop.ps1,line=$($_.Extent.StartLineNumber)::$($_.Message)" -ForegroundColor Red
+              Write-Host "::error file=Migrate-Laptop.ps1,line=$($_.Extent.StartLineNumber)::$($_.Message)"
             }
             Write-Error "PowerShell syntax check failed — $($errors.Count) error(s) found"
             exit 1
