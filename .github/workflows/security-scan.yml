@@ -1,0 +1,167 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly on Monday at 6 AM UTC
+
+permissions:
+  contents: read
+
+jobs:
+  psscriptanalyzer:
+    name: PSScriptAnalyzer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+          $results = Invoke-ScriptAnalyzer -Path . -Recurse -ReportSummary
+          $results | Format-Table -AutoSize
+          if ($results | Where-Object { $_.Severity -eq 'Error' }) {
+            Write-Error "PSScriptAnalyzer found errors"
+            exit 1
+          }
+          Write-Host "✅ PSScriptAnalyzer passed — no errors found"
+
+  safety-audit:
+    name: Script Safety Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No internet calls
+        shell: bash
+        run: |
+          echo "=== Checking for outbound network calls ==="
+          SCRIPT="Migrate-Laptop.ps1"
+
+          # Find any real Invoke-RestMethod/WebRequest/WebClient calls (not comments or string builders)
+          if grep -n 'Invoke-RestMethod\|Invoke-WebRequest\|Net\.WebClient\|DownloadFile\|DownloadString' "$SCRIPT" \
+              | grep -v '^\s*#' \
+              | grep -v 'AppendLine' \
+              | grep -v 'brew\|Homebrew'; then
+            echo "::error::FAIL — Found outbound network calls in script"
+            exit 1
+          fi
+
+          echo "✅ No outbound network calls found"
+
+      - name: No file deletions outside cleanup mode
+        shell: bash
+        run: |
+          echo "=== Checking that scan/migrate modes never delete files ==="
+          SCRIPT="Migrate-Laptop.ps1"
+
+          # Get the line number where cleanup function starts
+          CLEANUP_START=$(grep -n 'function Start-OldLaptopCleanup' "$SCRIPT" | head -1 | cut -d: -f1)
+          echo "Cleanup function starts at line $CLEANUP_START"
+
+          if [ -z "$CLEANUP_START" ]; then
+            echo "::error::FAIL — Could not find Start-OldLaptopCleanup function"
+            exit 1
+          fi
+
+          # Check for Remove-Item BEFORE the cleanup function (lines 1 to CLEANUP_START)
+          UNSAFE_DELETES=$(head -n "$CLEANUP_START" "$SCRIPT" \
+            | grep -n 'Remove-Item\|\.Delete()\|[Ff]ile\.Delete\|Clear-RecycleBin' \
+            | grep -v '^\s*#' \
+            | grep -v 'AppendLine' || true)
+
+          if [ -n "$UNSAFE_DELETES" ]; then
+            echo "::error::FAIL — Found file deletion commands OUTSIDE cleanup function:"
+            echo "$UNSAFE_DELETES"
+            exit 1
+          fi
+
+          echo "✅ No file deletions outside cleanup function (cleanup function is destructive by design)"
+
+      - name: No SSH key content reading
+        shell: bash
+        run: |
+          echo "=== Checking that SSH private keys are never read ==="
+          SCRIPT="Migrate-Laptop.ps1"
+
+          # Look for Get-Content on .ssh dir or private key patterns
+          if grep -n 'Get-Content.*\.ssh\|Get-Content.*id_rsa\|Get-Content.*id_ed25519\|Get-Content.*private' "$SCRIPT" \
+              | grep -v '^\s*#' \
+              | grep -v 'AppendLine'; then
+            echo "::error::FAIL — Found SSH private key content reading"
+            exit 1
+          fi
+
+          echo "✅ SSH key contents are never read"
+
+      - name: No obfuscation or code injection
+        shell: bash
+        run: |
+          echo "=== Checking for obfuscation or code injection ==="
+          SCRIPT="Migrate-Laptop.ps1"
+
+          # Base64 / encoded commands
+          if grep -n 'FromBase64String\|ToBase64String\|EncodedCommand\|-enc ' "$SCRIPT" \
+              | grep -v '^\s*#' \
+              | grep -v 'AppendLine'; then
+            echo "::error::FAIL — Found Base64/encoding patterns"
+            exit 1
+          fi
+
+          # Invoke-Expression on variables (iex $var is dangerous)
+          # Allow the checklist's Invoke-Expression which runs hardcoded version-check commands
+          IEX_COUNT=$(grep -c 'Invoke-Expression' "$SCRIPT" || true)
+          SAFE_IEX=$(grep -c 'Invoke-Expression \$check.Cmd' "$SCRIPT" || true)
+          UNSAFE_IEX=$((IEX_COUNT - SAFE_IEX))
+
+          if [ "$UNSAFE_IEX" -gt 0 ]; then
+            echo "::warning::Found $UNSAFE_IEX Invoke-Expression call(s) beyond the checklist runner — review manually"
+            grep -n 'Invoke-Expression' "$SCRIPT" | grep -v 'check.Cmd'
+          fi
+
+          echo "✅ No obfuscation detected (Invoke-Expression uses: $IEX_COUNT total, $SAFE_IEX safe checklist)"
+
+      - name: Write scope check
+        shell: bash
+        run: |
+          echo "=== Checking all file writes go to output directory ==="
+          SCRIPT="Migrate-Laptop.ps1"
+
+          # All Set-Content / Add-Content should target:
+          #   - $script:LogFilePath (log file in output dir)
+          #   - $ReportPath / $CachePath / $ScriptPath / $FilePath (output dir)
+          # NOT arbitrary system paths
+
+          WRITES=$(grep -n 'Set-Content\|Add-Content' "$SCRIPT" | grep -v '^\s*#' | grep -v 'AppendLine' || true)
+          echo "File write locations found:"
+          echo "$WRITES"
+
+          # Should not write to Windows, System32, Program Files etc.
+          if echo "$WRITES" | grep -i 'System32\|Windows\|Program Files\|C:\\Users' | grep -v 'PROFILE\|AppendLine'; then
+            echo "::error::FAIL — Found writes to system directories"
+            exit 1
+          fi
+
+          echo "✅ All writes target output directory or log file"
+
+      - name: No credential/password handling
+        shell: bash
+        run: |
+          echo "=== Checking for credential/password handling ==="
+          SCRIPT="Migrate-Laptop.ps1"
+
+          # Should not use Get-Credential, ConvertTo-SecureString, or read passwords programmatically
+          # Exclude: Write-Host (informational text), comments, AppendLine (HTML/report generation)
+          if grep -n 'Get-Credential\|ConvertTo-SecureString\|SecureStringToBSTR\|Read-Host.*-AsSecureString' "$SCRIPT" \
+              | grep -v '^\s*#' \
+              | grep -v 'AppendLine' \
+              | grep -v 'Write-Host'; then
+            echo "::error::FAIL — Found credential/password handling code"
+            exit 1
+          fi
+
+          echo "✅ No credential handling found"

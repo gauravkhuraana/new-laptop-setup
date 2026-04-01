@@ -1,0 +1,10 @@
+# Migration output contains sensitive data (env vars, configs, tokens)
+# Never commit this to a public repo
+migration-output/
+
+# Personal notes (not part of the tool)
+mychatwithllm.md
+myunderstanding
+
+# Debug output files
+scan-debug.txt
