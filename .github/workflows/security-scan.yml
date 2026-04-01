@@ -30,6 +30,30 @@ jobs:
           }
           Write-Host "✅ PSScriptAnalyzer passed — no errors found"
 
+  syntax-check:
+    name: PowerShell Syntax Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse PowerShell syntax
+        shell: pwsh
+        run: |
+          $errors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path "Migrate-Laptop.ps1").Path,
+            [ref]$null,
+            [ref]$errors
+          )
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object {
+              Write-Host "::error file=Migrate-Laptop.ps1,line=$($_.Extent.StartLineNumber)::$($_.Message)" -ForegroundColor Red
+            }
+            Write-Error "PowerShell syntax check failed — $($errors.Count) error(s) found"
+            exit 1
+          }
+          Write-Host "✅ PowerShell syntax check passed — no syntax errors found"
+
   safety-audit:
     name: Script Safety Audit
     runs-on: ubuntu-latest

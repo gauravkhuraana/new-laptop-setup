@@ -112,6 +112,7 @@ The [Security Scan workflow](.github/workflows/security-scan.yml) runs on every 
 
 | Check | What it verifies |
 |-------|-----------------|
+| **PowerShell syntax** | Script parses without any syntax errors |
 | **PSScriptAnalyzer** | PowerShell best practices + security rules (injection, credential handling) |
 | **No network calls** | Zero outbound HTTP/HTTPS calls in the script |
 | **No file deletions** | Script never deletes files on the source machine |
