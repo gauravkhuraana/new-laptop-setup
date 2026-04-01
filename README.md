@@ -211,7 +211,7 @@ When ready, pick **[3]** on your old laptop to scan and generate scripts.
 ```powershell
 # On your OLD laptop — full scan + script generation:
 .\Migrate-Laptop.ps1
-# Choose option [1] Full Migration
+# Choose option [3] Scan & Prepare
 ```
 
 This creates a `migration-output/` folder with everything you need.
@@ -270,9 +270,9 @@ To start fresh, delete the progress file (`*-progress.json`) next to the script.
 ### Step 5: Run the post-migration checklist
 
 ```powershell
-# Back to the main script, choose option [4]:
+# Back to the main script, choose option [6]:
 .\Migrate-Laptop.ps1
-# Choose option [4] Post-Migration Checklist
+# Choose option [6] Post-Migration Checklist
 ```
 
 Walks you through verifying everything works: Git, SSH, VS Code, Node, Python, bookmarks, etc.
@@ -282,9 +282,9 @@ Walks you through verifying everything works: Git, SSH, VS Code, Node, Python, b
 Once you're **100% satisfied** the new laptop is fully working:
 
 ```powershell
-# On the OLD laptop — choose option [5]:
+# On the OLD laptop — choose option [7]:
 .\Migrate-Laptop.ps1
-# Choose option [5] Clean Up Old Laptop
+# Choose option [7] Clean Up Old Laptop
 ```
 
 > **This is destructive and irreversible.** It requires typing `I HAVE VERIFIED` and then `DELETE MY DATA` to proceed. Each step also asks individual confirmation.
