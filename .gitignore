@@ -2,6 +2,12 @@
 # Never commit this to a public repo
 migration-output/
 
+# Debug/log output from scan runs
+scan-debug.txt
+
+# VS Code temp files created when TEMP env var was broken
+%USERP~1/
+
 # Personal notes (not part of the tool)
 mychatwithllm.md
 myunderstanding
