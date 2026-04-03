@@ -137,6 +137,14 @@ if ($null -eq $script:ChosenMode) {
         }
         '3' {
             $script:ChosenMode = 'full'
+            Write-Host ""
+            Write-Host "  ┌─ Quick Pre-Flight Check ──────────────────────────────────┐" -ForegroundColor Yellow
+            Write-Host "  │ Before scanning, verify browser sync is ON (old laptop):  │" -ForegroundColor Yellow
+            Write-Host "  │  Edge  : edge://settings/profiles/sync                    │" -ForegroundColor White
+            Write-Host "  │  Chrome: chrome://settings/syncSetup                      │" -ForegroundColor White
+            Write-Host "  │ History, bookmarks & passwords won't transfer without sync.│" -ForegroundColor DarkGray
+            Write-Host "  └───────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
+            Write-Host ""
             Write-Host "  → Scan & Prepare selected. Will scan this laptop and generate scripts." -ForegroundColor Green
             Write-Host "    Nothing will be installed, copied, or deleted." -ForegroundColor DarkGray
         }
@@ -1397,7 +1405,7 @@ function Write-MarkdownReport {
     [void]$sb.AppendLine("")
     [void]$sb.AppendLine("| Setting | Action | Details |")
     [void]$sb.AppendLine("|---------|--------|---------|")
-    [void]$sb.AppendLine("| Browser bookmarks/passwords | \`\`Sign in to sync\`\` | Sign into Chrome/Edge/Firefox — syncs after sign-in |")
+    [void]$sb.AppendLine("| Browser bookmarks/passwords/history | \`\`Sign in to sync\`\` | Verify sync is ON before migration (edge://settings/profiles/sync, chrome://settings/syncSetup) |")
     [void]$sb.AppendLine("| VS Code settings + extensions | \`\`Enable sync\`\` | Ctrl+Shift+P > Settings Sync: Turn On (sign in with GitHub/Microsoft) |")
     [void]$sb.AppendLine("| OneDrive files | \`\`Sign in to sync\`\` | Sign into OneDrive — files sync after sign-in |")
     [void]$sb.AppendLine("| WiFi passwords | \`\`Auto-sync\`\` | Syncs via Microsoft account (if signed in) |")
@@ -2952,6 +2960,26 @@ function Show-ManualTips {
     Write-Host "  Connect: gauravkhurana.com/connect" -ForegroundColor DarkCyan
     Write-Host ""
 
+    # ── DO THIS FIRST (before any migration) ──
+    Write-Host "  ┌──────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
+    Write-Host "  │         DO THIS FIRST (on the OLD laptop, right now)      │" -ForegroundColor Yellow
+    Write-Host "  └──────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  Verify browser sync is ON — history/bookmarks can't be recovered later:" -ForegroundColor Yellow
+    Write-Host "    Edge   : edge://settings/profiles/sync   — History, Passwords, Extensions" -ForegroundColor White
+    Write-Host "    Chrome : chrome://settings/syncSetup      — History, Passwords, Extensions" -ForegroundColor White
+    Write-Host "    Firefox: about:preferences#sync           — History, Bookmarks, Add-ons" -ForegroundColor White
+    Write-Host "    If any toggle is OFF, turn it ON now and wait for sync to complete." -ForegroundColor DarkGray
+    Write-Host ""
+    Write-Host "  Also verify before proceeding:" -ForegroundColor Yellow
+    Write-Host "    [ ] 2FA / Authenticator backed up or multi-device enabled" -ForegroundColor White
+    Write-Host "    [ ] Password manager synced and accessible from another device" -ForegroundColor White
+    Write-Host "    [ ] Outlook rules exported (File > Manage Rules > Options > Export)" -ForegroundColor White
+    Write-Host ""
+
+    Read-Host "  Press Enter after verifying the above..."
+    Write-Host ""
+
     # ── GENERAL TIPS (for everyone) ──
     Write-Host "  ┌──────────────────────────────────────────────────────────┐" -ForegroundColor Green
     Write-Host "  │              GENERAL TIPS (for everyone)                  │" -ForegroundColor Green
@@ -3138,6 +3166,7 @@ function Show-ManualTips {
     Write-Host "    [ ] 2FA / Authenticator set up on new device" -ForegroundColor White
     Write-Host "    [ ] Password manager accessible on new laptop" -ForegroundColor White
     Write-Host "    [ ] Browser bookmarks & passwords visible" -ForegroundColor White
+    Write-Host "    [ ] Browser history present (if sync was ON — check edge://history)" -ForegroundColor White
     Write-Host "    [ ] Browser extensions installed (check after sign-in)" -ForegroundColor White
     Write-Host "    [ ] Email working (Outlook / Gmail)" -ForegroundColor White
     Write-Host "    [ ] OneDrive / cloud files syncing" -ForegroundColor White
