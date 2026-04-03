@@ -38,6 +38,7 @@ Step 1: SCAN                                     Step 0: PREPARE
 │   ├─ Install-Software.ps1
 │   ├─ Transfer-Data.ps1  │
 │   ├─ Restore-Configs.ps1│
+│   ├─ Verify-Transfer.ps1│
 │   ├─ reports (.html/.md)│
 │   └─ scan cache (.json) │
 └─────────┬───────────────┘
@@ -105,9 +106,21 @@ Step 2: TRANSFER DATA (over WiFi)
                                                               │
                                                   Step 5: VERIFY
                                                   ┌─────────────────────────┐
-                                                  │ Run: .\Migrate-Laptop   │
+                                                  │ Run: .\Verify-Transfer  │
                                                   │           .ps1          │
-                                                  │ Choose [4] Checklist    │
+                                                  │                         │
+                                                  │ Compares src vs dest:   │
+                                                  │  Dir count, file count  │
+                                                  │  One level deep check   │
+                                                  │                         │
+                                                  │ D:\AI           [OK]    │
+                                                  │ D:\Automation   [OK]    │
+                                                  │ E:\lonza        [!!]    │
+                                                  │ C:\tmp          [--]    │
+                                                  │                         │
+                                                  │ Then also run:          │
+                                                  │ .\Migrate-Laptop.ps1    │
+                                                  │ Choose [6] Checklist    │
                                                   │                         │
                                                   │ [1] Git works? ✓        │
                                                   │ [2] SSH keys? ✓         │
@@ -198,7 +211,7 @@ When ready, pick **[3]** on your old laptop to scan and generate scripts.
 ```powershell
 # On your OLD laptop — full scan + script generation:
 .\Migrate-Laptop.ps1
-# Choose option [1] Full Migration
+# Choose option [3] Scan & Prepare
 ```
 
 This creates a `migration-output/` folder with everything you need.
@@ -215,6 +228,7 @@ migration-output/
 ├── Install-Software.ps1           ← Ready to run on new laptop
 ├── Transfer-Data.ps1              ← Ready to run (old → new)
 ├── Restore-Configs.ps1            ← Ready to run on new laptop
+├── Verify-Transfer.ps1            ← Run after transfer to verify completeness
 └── migration-for-ai-review.md     ← Paste into ChatGPT/Copilot for advice
 ```
 
@@ -231,7 +245,10 @@ Use a USB drive, network share, or cloud sync — just get the `migration-output
 # 2. Transfer your data (choose: network, USB, or cloud)
 .\Transfer-Data.ps1
 
-# 3. Restore your configs (Git, VS Code extensions, env vars, etc.)
+# 3. Verify the transfer (compare source vs destination counts)
+.\Verify-Transfer.ps1
+
+# 4. Restore your configs (Git, VS Code extensions, env vars, etc.)
 .\Restore-Configs.ps1
 ```
 
@@ -253,9 +270,9 @@ To start fresh, delete the progress file (`*-progress.json`) next to the script.
 ### Step 5: Run the post-migration checklist
 
 ```powershell
-# Back to the main script, choose option [4]:
+# Back to the main script, choose option [6]:
 .\Migrate-Laptop.ps1
-# Choose option [4] Post-Migration Checklist
+# Choose option [6] Post-Migration Checklist
 ```
 
 Walks you through verifying everything works: Git, SSH, VS Code, Node, Python, bookmarks, etc.
@@ -265,9 +282,9 @@ Walks you through verifying everything works: Git, SSH, VS Code, Node, Python, b
 Once you're **100% satisfied** the new laptop is fully working:
 
 ```powershell
-# On the OLD laptop — choose option [5]:
+# On the OLD laptop — choose option [7]:
 .\Migrate-Laptop.ps1
-# Choose option [5] Clean Up Old Laptop
+# Choose option [7] Clean Up Old Laptop
 ```
 
 > **This is destructive and irreversible.** It requires typing `I HAVE VERIFIED` and then `DELETE MY DATA` to proceed. Each step also asks individual confirmation.
@@ -331,12 +348,26 @@ Uses `winget` IDs so installation is one command per app. Knows 60+ common devel
 The transfer script automatically skips things you should never copy:
 
 ```
-Folders:  node_modules, .venv, venv, __pycache__, .pytest_cache, .cache,
-          dist, build, target, bin, obj, coverage, .next, .nuxt,
-          .gradle, .m2, $RECYCLE.BIN, System Volume Information
+Folders:  .git, .svn, .hg,
+          node_modules, .venv, venv, packages, .nuget,
+          __pycache__, .pytest_cache, .cache, .tox,
+          dist, build, target, bin, obj,
+          .vs, .idea, .sonarlint, .angular,
+          .gradle, .m2, .terraform,
+          TestResults, test-results,
+          Cache, GPUCache, tdata, CachedData, Crashpad,
+          $RECYCLE.BIN, System Volume Information
 
 Files:    *.log, *.tmp, *.temp, *.bak, *.pyc, *.class, *.o, *.obj,
-          Thumbs.db, desktop.ini
+          *.exe, *.dll, Thumbs.db, desktop.ini
+
+Auto-excluded folders on C: drive:
+          Python3*, Ruby*, Go, PHP, Rust, Maven, Gradle,
+          officeclient.*, intel, AMD, NVIDIA, Dell, HP,
+          inetpub, msys*, MinGW, Cache
+
+Auto-excluded everywhere:
+          OneDrive* folders (sync automatically)
 ```
 
 After transferring your projects, rebuild dependencies fresh:
@@ -410,8 +441,10 @@ After a full run, your `migration-output/` folder contains:
 | `Install-Software.ps1` | Installs apps via winget | Run on **new** laptop (review first!) |
 | `Transfer-Data.ps1` | Copies data with smart exclusions | Run on **old** laptop (pushes data to new) |
 | `Restore-Configs.ps1` | Restores Git, VS Code, env vars, etc. | Run on **new** laptop |
+| `Verify-Transfer.ps1` | Compares source vs destination folder/file counts | Run on **old** laptop after transfer |
 | `migration-for-ai-review.md` | AI-friendly summary | Paste into ChatGPT/Copilot for personalized advice |
 | `migration-log-*.txt` | Detailed log of the scan | Troubleshooting |
+| `transfer-log-*.txt` | Timestamped robocopy log per transfer run | Check transfer details |
 
 ## Don't Forget (Manual Steps)
 
@@ -487,24 +520,33 @@ This tool follows a simple philosophy:
 
 ## Bulk Install — How Commenting Works
 
-The generated `Install-Software.ps1` has three sections:
+The generated `Install-Software.ps1` has editable arrays at the top — one app per line:
 
 ```powershell
-# DEVELOPER SOFTWARE (16 apps) — all ACTIVE
-winget install --id "Git.Git" ...           # ← runs by default
-winget install --id "Docker.DockerDesktop"   # ← runs by default
-# winget install --id "Docker.DockerDesktop" # ← add # to SKIP it
+# ── DEVELOPER SOFTWARE ──
+$devApps = [ordered]@{
+    'Git'                         = 'Git.Git'
+    'Visual Studio Code'          = 'Microsoft.VisualStudioCode'
+    'Node.js 22'                  = 'OpenJS.NodeJS.22'
+    # 'Docker Desktop'            = 'Docker.DockerDesktop'      # ← add # to SKIP
+}
 
-# GENERAL SOFTWARE (18 apps) — all ACTIVE
-winget install --id "Google.Chrome" ...      # ← runs by default
+# ── GENERAL SOFTWARE ──
+$generalApps = [ordered]@{
+    'Google Chrome'               = 'Google.Chrome.EXE'
+    'Microsoft Teams'             = 'Microsoft.Teams'
+    # 'Zoom Workplace'            = 'Zoom.Zoom.EXE'            # ← add # to SKIP
+}
 
-# OTHER SOFTWARE (138 apps) — all COMMENTED OUT
-# winget install --id "Anthropic.Claude" ... # ← remove # to INSTALL it
-# winget install --id "Bruno.Bruno" ...      # ← remove # to INSTALL it
+# ── OTHER SOFTWARE ──
+$otherApps = [ordered]@{
+    # 'Claude'                    = 'Anthropic.Claude'          # ← remove # to INSTALL
+    # 'Bruno (API client)'        = 'Bruno.Bruno'
+}
 ```
 
-**To skip** an app: add `#` at the start of its `winget` line
-**To add** an app: remove `#` from its line in the OTHER section
+**To skip** an app: add `#` at the start of its line
+**To add** an app: remove `#` from its line
 
 Before running, each section shows the full list and asks for confirmation.
 
@@ -554,6 +596,28 @@ A: Yes — it scans all drives (C, D, E, etc.) and includes custom folders from 
 
 **Q: What about WSL (Windows Subsystem for Linux)?**
 A: WSL distros aren't migrated automatically. Export them manually: `wsl --export Ubuntu ubuntu-backup.tar` then import on the new machine: `wsl --import Ubuntu C:\WSL\ ubuntu-backup.tar`.
+
+## 🐛 Reporting a Bug
+
+Found an issue? Please [open a GitHub issue](https://github.com/gauravkhuraana/new-laptop-setup/issues/new) and include:
+
+1. **What you were doing** — which script/step failed
+2. **Error message** — copy the exact error text
+3. **Log files** — attach the relevant files from your `migration-output/` folder:
+   - `migration-log-*.txt` (scan log)
+   - `transfer-log-*.txt` (if a transfer failed)
+   - `*-progress.json` (shows which steps completed before the failure)
+4. **Your environment** — Windows version (`winver`), PowerShell version (`$PSVersionTable.PSVersion`)
+
+> **Before attaching logs:** scan the files for any API keys, tokens, or passwords in environment variables — redact them before sharing publicly.
+
+---
+
+## ⚠️ Disclaimer
+
+> **Use at your own risk.** While every precaution has been taken to make this tool safe and reliable, I am not responsible for any data loss, corruption, or unintended consequences that may result from using this tool.
+>
+> Always **back up your data independently** before running any migration. Verify your data has transferred successfully before wiping or repurposing your old laptop.
 
 ---
 
