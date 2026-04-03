@@ -227,11 +227,14 @@ $script:DevEssentials = @(
     @{ Name = "Git";                   Pattern = "^Git$|Git for Windows";              WingetId = "Git.Git";                       Category = "Version Control" }
     @{ Name = "Node.js";              Pattern = "Node\.js|NodeJS";                    WingetId = "OpenJS.NodeJS.LTS";             Category = "Runtime" }
     @{ Name = "Python";               Pattern = "^Python\s*3|Python 3\.\d";          WingetId = "Python.Python.3.12";            Category = "Runtime" }
-    @{ Name = "Java (JDK)";           Pattern = "Java.*Development Kit|OpenJDK|JDK|Temurin|Corretto"; WingetId = "EclipseAdoptium.Temurin.21.JDK"; Category = "Runtime" }
+    @{ Name = "Java (JDK)";           Pattern = "Java.*Development Kit|OpenJDK|JDK|Temurin|Corretto|Java \d+ Update"; WingetId = "EclipseAdoptium.Temurin.21.JDK"; Category = "Runtime" }
     @{ Name = "Docker Desktop";       Pattern = "Docker Desktop";                     WingetId = "Docker.DockerDesktop";           Category = "Containers" }
     @{ Name = "Postman";              Pattern = "Postman";                            WingetId = "Postman.Postman";                Category = "API Tools" }
+    @{ Name = "Bruno";                Pattern = "^Bruno";                             WingetId = "Bruno.Bruno";                    Category = "API Tools" }
+    @{ Name = "Hoppscotch";           Pattern = "Hoppscotch";                         WingetId = "hoppscotch.Hoppscotch";          Category = "API Tools" }
     @{ Name = "Windows Terminal";     Pattern = "Windows Terminal";                   WingetId = "Microsoft.WindowsTerminal";      Category = "Terminal" }
     @{ Name = "PowerShell 7";        Pattern = "PowerShell [7-9]|PowerShell-7|pwsh"; WingetId = "Microsoft.PowerShell";           Category = "Terminal" }
+    @{ Name = "Oh My Posh";           Pattern = "Oh My Posh";                         WingetId = "JanDeDobbeleer.OhMyPosh";        Category = "Terminal" }
     @{ Name = ".NET SDK";             Pattern = "\.NET SDK|dotnet-sdk";               WingetId = "Microsoft.DotNet.SDK.8";         Category = "Runtime" }
     @{ Name = "Visual Studio";        Pattern = "Visual Studio (Community|Professional|Enterprise) 20"; WingetId = "Microsoft.VisualStudio.2022.Community"; Category = "IDE" }
     @{ Name = "IntelliJ IDEA";        Pattern = "IntelliJ IDEA";                      WingetId = "JetBrains.IntelliJIDEA.Community"; Category = "IDE" }
@@ -243,6 +246,7 @@ $script:DevEssentials = @(
     @{ Name = "AWS CLI";              Pattern = "AWS CLI|AWSCLI";                     WingetId = "Amazon.AWSCLI";                   Category = "Cloud" }
     @{ Name = "WSL";                  Pattern = "Windows Subsystem for Linux";        WingetId = "Microsoft.WSL";                   Category = "Runtime" }
     @{ Name = "GitHub CLI";           Pattern = "GitHub CLI|gh\.exe";                 WingetId = "GitHub.cli";                      Category = "Version Control" }
+    @{ Name = "GitHub Copilot CLI";   Pattern = "^Copilot$|GitHub.Copilot";           WingetId = "GitHub.Copilot";                  Category = "AI" }
     @{ Name = "Notepad++";            Pattern = "Notepad\+\+";                        WingetId = "Notepad++.Notepad++";             Category = "Editor" }
     @{ Name = "Sublime Text";         Pattern = "Sublime Text";                       WingetId = "SublimeHQ.SublimeText.4";         Category = "Editor" }
     @{ Name = "DBeaver";              Pattern = "DBeaver";                            WingetId = "dbeaver.dbeaver";                 Category = "Database" }
@@ -254,6 +258,11 @@ $script:DevEssentials = @(
     @{ Name = "WinSCP";               Pattern = "WinSCP";                            WingetId = "WinSCP.WinSCP";                   Category = "FTP" }
     @{ Name = "Fiddler";              Pattern = "Fiddler";                            WingetId = "Telerik.Fiddler.Classic";         Category = "Network" }
     @{ Name = "Wireshark";            Pattern = "Wireshark";                          WingetId = "WiresharkFoundation.Wireshark";   Category = "Network" }
+    # AI / LLM tools
+    @{ Name = "Claude";               Pattern = "^Claude$|Anthropic\.Claude";         WingetId = "Anthropic.Claude";                Category = "AI" }
+    @{ Name = "GPT4All";              Pattern = "GPT4All";                            WingetId = "nomic.gpt4all";                   Category = "AI" }
+    @{ Name = "Foundry Local";        Pattern = "Foundry Local";                      WingetId = "Microsoft.FoundryLocal";          Category = "AI" }
+    @{ Name = "Comet (Perplexity)";   Pattern = "^Comet$|Perplexity\.Comet";          WingetId = "Perplexity.Comet";                Category = "AI" }
 )
 
 # General essentials
@@ -539,6 +548,34 @@ function Get-InstalledSoftware {
                     }
                 }
                 if ($wName -and $wId -and $wId -match '^\S+\.\S+') {
+                    # Detect truncated IDs (winget list truncates long IDs with ellipsis)
+                    if ($wId -match '[\u2026\u0393\u00C3\u00E2\u0080\u00A6]|ΓÇ|â€¦' -or ($wId -match '^MSIX\\' -and $wId -notmatch '_[a-z0-9]{13}$')) {
+                        # Truncated MSIX ID — try to resolve via winget search (msstore first, then winget)
+                        $resolved = $false
+                        try {
+                            foreach ($src in @('msstore','winget')) {
+                                $searchOut = & winget search --name $wName --source $src --accept-source-agreements 2>$null
+                                $foundId = $searchOut | ForEach-Object {
+                                    if ($src -eq 'msstore' -and $_ -match '\b([A-Z0-9]{10,14})\b\s+Unknown\s+msstore') { $Matches[1] }
+                                    elseif ($src -eq 'winget' -and $_ -match '(\S+\.\S+)\s+[\d\.]+\s+.*winget') { $Matches[1] }
+                                } | Select-Object -First 1
+                                if ($foundId) {
+                                    $wId = $foundId
+                                    Write-Log "Resolved truncated ID for '$wName' to $src`: $foundId" -Level Info
+                                    $resolved = $true
+                                    break
+                                }
+                            }
+                            if (-not $resolved) {
+                                Write-Log "Could not resolve truncated winget ID for '$wName' (original: $wId) — will skip in install script" -Level Warn
+                                $wId = ""
+                            }
+                        } catch {
+                            Write-Log "Failed to resolve truncated ID for '$wName': $($_.Exception.Message)" -Level Warn
+                            $wId = ""
+                        }
+                    }
+                    if (-not $wId) { continue }
                     $wingetMap[$wName] = $wId
                     # Also add to software list if not already there
                     if (-not $software.ContainsKey($wName)) {
@@ -625,6 +662,42 @@ function Get-InstalledSoftware {
         Write-Log "Portable apps found: $($portableApps.Count) standalone executables in tools/portable folders" -Level Success
     }
 
+    # ── Collapse MSI sub-components into parent installs ──
+    # Installers like Python, Visual Studio, Java register each feature as a
+    # separate registry entry (e.g. "Python 3.13 Core Interpreter", "Python 3.13
+    # pip Bootstrap"). We keep only the main entry and remove the rest.
+    $subComponentPatterns = @(
+        # Python: keep "Python 3.x.y (64-bit)" or "Python 3.x.y", remove sub-features
+        @{ Parent = '^Python \d+\.\d+\.\d+(\s+\((?:64|32)-bit\))?$'
+           Child  = '^Python \d+\.\d+\.\d+\s+(Add to Path|Core Interpreter|Development Libraries|Documentation|Executables|pip Bootstrap|Standard Library|Tcl/Tk Support|Test Suite|Utility Scripts)' }
+        # Visual Studio redistributables: keep newest, skip per-arch duplicates
+        @{ Parent = '^Microsoft Visual C\+\+.+Redistributable'
+           Child  = '^Microsoft Visual C\+\+.+Redistributable.+(Additional|Minimum|Debug)' }
+        # .NET SDK/Runtime: keep the SDK, skip host/runtime/targeting sub-entries
+        @{ Parent = '^Microsoft \.NET SDK \d'
+           Child  = '^Microsoft \.NET.+(Host|Runtime|Targeting Pack|AppHost)' }
+        # Node.js: keep main entry, remove "Node.js Corepack Manager" etc
+        @{ Parent = '^Node\.js$'
+           Child  = '^Node\.js (Corepack|npm cache)' }
+        # PowerShell 7: keep main, remove preview features
+        @{ Parent = '^PowerShell \d'
+           Child  = '^PowerShell \d.+\.\d+\.\d+-' }
+    )
+    $removedComponents = 0
+    foreach ($pattern in $subComponentPatterns) {
+        $hasParent = $software.Keys | Where-Object { $software[$_].Name -match $pattern.Parent } | Select-Object -First 1
+        if ($hasParent) {
+            $children = @($software.Keys | Where-Object { $software[$_].Name -match $pattern.Child })
+            foreach ($child in $children) {
+                $software.Remove($child)
+                $removedComponents++
+            }
+        }
+    }
+    if ($removedComponents -gt 0) {
+        Write-Log "Collapsed $removedComponents installer sub-components into parent entries" -Level Info
+    }
+
     # Categorize software
     foreach ($key in @($software.Keys)) {
         $app = $software[$key]
@@ -661,6 +734,35 @@ function Get-InstalledSoftware {
                 }
             }
         }
+    }
+
+    # ── Deduplicate by WingetId ──
+    # Multiple registry entries can resolve to the same winget package
+    # (e.g. "Adobe Acrobat (64-bit)" / "Adobe Acrobat Reader" → Adobe.Acrobat.Reader.64-bit,
+    #  PowerToys shell extensions → XP89DCGQ3K6VLD, Teams sub-components → Microsoft.Teams).
+    # Keep the first (shortest-name) entry per WingetId.
+    $seenWingetIds = @{}
+    $wingetIdDupes = 0
+    foreach ($key in @($software.Keys)) {
+        $app = $software[$key]
+        $wid = $app.WingetId
+        if (-not $wid) { continue }
+        if ($seenWingetIds.ContainsKey($wid)) {
+            # Keep whichever has the shorter name (likely the "parent" entry)
+            $existing = $seenWingetIds[$wid]
+            if ($app.Name.Length -lt $existing.Name.Length) {
+                $software.Remove($existing.Name)
+                $seenWingetIds[$wid] = $app
+            } else {
+                $software.Remove($key)
+            }
+            $wingetIdDupes++
+        } else {
+            $seenWingetIds[$wid] = $app
+        }
+    }
+    if ($wingetIdDupes -gt 0) {
+        Write-Log "Removed $wingetIdDupes entries that shared the same winget package ID" -Level Info
     }
 
     $devCount = @($software.Values | Where-Object { $_.IsDev }).Count
@@ -1869,6 +1971,190 @@ function Test-StepDone {
 "@
 }
 
+function Get-InstallTrackerCode {
+    return @'
+# ═══════════════════════════════════════════════════════════════
+# INSTALL RESULT TRACKER
+# ═══════════════════════════════════════════════════════════════
+$script:InstallResults = [System.Collections.ArrayList]::new()
+
+function Add-InstallResult {
+    param(
+        [string]$Name,
+        [string]$Category,
+        [ValidateSet('Success','Failed','Skipped','Manual','AlreadyDone')]
+        [string]$Status,
+        [string]$Detail = ''
+    )
+    [void]$script:InstallResults.Add([PSCustomObject]@{
+        Name      = $Name
+        Category  = $Category
+        Status    = $Status
+        Detail    = $Detail
+        Timestamp = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+    })
+}
+
+function Invoke-WingetInstall {
+    param(
+        [string]$Name,
+        [string]$Category,
+        [string]$StepId,
+        [string[]]$WingetArgs
+    )
+    if (Test-StepDone $StepId) {
+        Write-Host "  [SKIP] $Name — already installed" -ForegroundColor DarkGray
+        Add-InstallResult -Name $Name -Category $Category -Status 'AlreadyDone' -Detail 'Completed in previous run'
+        return
+    }
+    Write-Host "Installing: $Name" -ForegroundColor Yellow
+    & $script:WingetExe @WingetArgs 2>&1 | Out-Host
+    $exitCode = $LASTEXITCODE
+    if ($exitCode -eq 0) {
+        Save-Progress $StepId 'done'
+        Add-InstallResult -Name $Name -Category $Category -Status 'Success'
+    } elseif ($exitCode -eq -1978335189) {
+        # Already installed (0x8A150057)
+        Save-Progress $StepId 'done'
+        Add-InstallResult -Name $Name -Category $Category -Status 'Success' -Detail 'Already present on system'
+    } else {
+        Save-Progress $StepId 'failed'
+        Add-InstallResult -Name $Name -Category $Category -Status 'Failed' -Detail "winget exit code: $exitCode"
+    }
+}
+
+function Save-InstallReport {
+    $reportPath = Join-Path $PSScriptRoot 'install-report.html'
+    $total     = $script:InstallResults.Count
+    $success   = @($script:InstallResults | Where-Object Status -eq 'Success').Count
+    $failed    = @($script:InstallResults | Where-Object Status -eq 'Failed').Count
+    $skipped   = @($script:InstallResults | Where-Object Status -eq 'Skipped').Count
+    $manual    = @($script:InstallResults | Where-Object Status -eq 'Manual').Count
+    $already   = @($script:InstallResults | Where-Object Status -eq 'AlreadyDone').Count
+    $date      = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    $hostname  = $env:COMPUTERNAME
+
+    $statusIcon = @{ Success = '&#10004;'; Failed = '&#10008;'; Skipped = '&#9899;'; Manual = '&#9888;'; AlreadyDone = '&#8635;' }
+    $statusColor = @{ Success = '#27ae60'; Failed = '#e74c3c'; Skipped = '#7f8c8d'; Manual = '#f39c12'; AlreadyDone = '#3498db' }
+
+    $rows = $script:InstallResults | ForEach-Object {
+        $icon = $statusIcon[$_.Status]
+        $color = $statusColor[$_.Status]
+        "      <tr><td style=`"color:$color;font-weight:bold`">$icon $($_.Status)</td><td>$($_.Name)</td><td>$($_.Category)</td><td>$($_.Detail)</td><td>$($_.Timestamp)</td></tr>"
+    }
+
+    $html = @"
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><title>Install Report — $hostname</title>
+<style>
+  body { font-family: Segoe UI, Arial, sans-serif; margin: 2em; background: #f5f5f5; color: #333; }
+  h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: .3em; }
+  .summary { display: flex; gap: 1.5em; margin: 1.5em 0; flex-wrap: wrap; }
+  .card { background: #fff; padding: 1em 1.5em; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,.1); min-width: 120px; text-align: center; }
+  .card .num { font-size: 2em; font-weight: bold; }
+  .card .label { font-size: .85em; color: #666; }
+  .success .num { color: #27ae60; } .failed .num { color: #e74c3c; }
+  .skipped .num { color: #7f8c8d; } .manual .num { color: #f39c12; }
+  .already .num { color: #3498db; }
+  table { width: 100%; border-collapse: collapse; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.1); border-radius: 8px; overflow: hidden; margin-top: 1em; }
+  th { background: #2c3e50; color: #fff; padding: .75em 1em; text-align: left; }
+  td { padding: .6em 1em; border-bottom: 1px solid #eee; }
+  tr:hover { background: #f9f9f9; }
+  .filter-bar { margin: 1em 0; }
+  .filter-bar button { padding: .4em .8em; margin-right: .4em; border: 1px solid #ccc; border-radius: 4px; background: #fff; cursor: pointer; }
+  .filter-bar button.active { background: #3498db; color: #fff; border-color: #3498db; }
+</style>
+</head>
+<body>
+<h1>&#128230; Software Installation Report</h1>
+<p>Machine: <strong>$hostname</strong> &mdash; $date</p>
+<div class="summary">
+  <div class="card success"><div class="num">$success</div><div class="label">Successful</div></div>
+  <div class="card failed"><div class="num">$failed</div><div class="label">Failed</div></div>
+  <div class="card manual"><div class="num">$manual</div><div class="label">Manual</div></div>
+  <div class="card skipped"><div class="num">$skipped</div><div class="label">Skipped</div></div>
+  <div class="card already"><div class="num">$already</div><div class="label">Previous Run</div></div>
+</div>
+<div class="filter-bar">
+  <button class="active" onclick="filterRows('all')">All ($total)</button>
+  <button onclick="filterRows('Success')">&#10004; Success ($success)</button>
+  <button onclick="filterRows('Failed')">&#10008; Failed ($failed)</button>
+  <button onclick="filterRows('Manual')">&#9888; Manual ($manual)</button>
+  <button onclick="filterRows('Skipped')">&#9899; Skipped ($skipped)</button>
+  <button onclick="filterRows('AlreadyDone')">&#8635; Previous ($already)</button>
+</div>
+<table>
+  <thead><tr><th>Status</th><th>Software</th><th>Category</th><th>Details</th><th>Time</th></tr></thead>
+  <tbody>
+$($rows -join "`n")
+  </tbody>
+</table>
+<script>
+function filterRows(status) {
+  document.querySelectorAll('.filter-bar button').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.querySelectorAll('tbody tr').forEach(r => {
+    r.style.display = (status === 'all' || r.children[0].textContent.includes(status)) ? '' : 'none';
+  });
+}
+</script>
+</body></html>
+"@
+    $html | Set-Content -Path $reportPath -Encoding UTF8
+    return $reportPath
+}
+
+'@
+}
+
+function Get-InstallReportCode {
+    return @'
+Write-Host "`nSoftware installation complete!`n" -ForegroundColor Green
+
+# ═══════════════════════════════════════════════════════════════
+# INSTALLATION REPORT
+# ═══════════════════════════════════════════════════════════════
+$total     = $script:InstallResults.Count
+$success   = @($script:InstallResults | Where-Object Status -eq 'Success').Count
+$failed    = @($script:InstallResults | Where-Object Status -eq 'Failed').Count
+$skipped   = @($script:InstallResults | Where-Object Status -eq 'Skipped').Count
+$manual    = @($script:InstallResults | Where-Object Status -eq 'Manual').Count
+$already   = @($script:InstallResults | Where-Object Status -eq 'AlreadyDone').Count
+
+Write-Host "═══════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "  INSTALLATION SUMMARY" -ForegroundColor Cyan
+Write-Host "═══════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "  Total processed : $total" -ForegroundColor White
+Write-Host "  Successful      : $success" -ForegroundColor Green
+if ($failed -gt 0)  { Write-Host "  Failed          : $failed" -ForegroundColor Red }
+if ($manual -gt 0)  { Write-Host "  Manual needed   : $manual" -ForegroundColor Yellow }
+Write-Host "  Skipped (system): $skipped" -ForegroundColor DarkGray
+Write-Host "  Previous run    : $already" -ForegroundColor DarkCyan
+Write-Host "═══════════════════════════════════════════" -ForegroundColor Cyan
+
+if ($failed -gt 0) {
+    Write-Host "`n  Apps that FAILED (need manual install):" -ForegroundColor Red
+    $script:InstallResults | Where-Object Status -eq 'Failed' | ForEach-Object {
+        Write-Host "    [X] $($_.Name) — $($_.Detail)" -ForegroundColor Red
+    }
+}
+
+if ($manual -gt 0) {
+    Write-Host "`n  Apps needing MANUAL intervention:" -ForegroundColor Yellow
+    $script:InstallResults | Where-Object Status -eq 'Manual' | ForEach-Object {
+        Write-Host "    [!] $($_.Name) — $($_.Detail)" -ForegroundColor Yellow
+    }
+}
+
+# Save HTML report
+$reportPath = Save-InstallReport
+Write-Host "`n  Full report saved to: $reportPath" -ForegroundColor Cyan
+Write-Host "  Open it in a browser for a detailed interactive view.`n" -ForegroundColor Gray
+'@
+}
+
 function Write-InstallScript {
     param([string]$ScriptPath, $ScanData)
 
@@ -1882,20 +2168,163 @@ function Write-InstallScript {
     [void]$sb.AppendLine('    Requires: winget (built into Windows 10/11)')
     [void]$sb.AppendLine('#>')
     [void]$sb.AppendLine('')
-    [void]$sb.AppendLine('# Ensure winget is available')
-    [void]$sb.AppendLine('if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {')
-    [void]$sb.AppendLine('    Write-Host "ERROR: winget is not available. Install App Installer from the Microsoft Store." -ForegroundColor Red')
+    [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
+    [void]$sb.AppendLine('# Resolve winget — works on any Windows 10/11 machine')
+    [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
+    [void]$sb.AppendLine('function Find-Winget {')
+    [void]$sb.AppendLine('    $cmd = Get-Command winget.exe -ErrorAction SilentlyContinue')
+    [void]$sb.AppendLine('    if ($cmd -and $cmd.Source -and (Test-Path $cmd.Source)) { return $cmd.Source }')
+    [void]$sb.AppendLine('    $alias = Join-Path $env:LOCALAPPDATA ''Microsoft\WindowsApps\winget.exe''')
+    [void]$sb.AppendLine('    if (Test-Path $alias) {')
+    [void]$sb.AppendLine('        try { $null = & $alias --version 2>$null; if ($LASTEXITCODE -eq 0) { return $alias } } catch { }')
+    [void]$sb.AppendLine('    }')
+    [void]$sb.AppendLine('    $explorerOwner = (Get-Process explorer -ErrorAction SilentlyContinue | Select-Object -First 1)')
+    [void]$sb.AppendLine('    if ($explorerOwner) {')
+    [void]$sb.AppendLine('        try {')
+    [void]$sb.AppendLine('            $sid = (Get-CimInstance Win32_Process -Filter "Name=''explorer.exe''" -ErrorAction SilentlyContinue |')
+    [void]$sb.AppendLine('                    Invoke-CimMethod -MethodName GetOwnerSid -ErrorAction SilentlyContinue).Sid')
+    [void]$sb.AppendLine('            if ($sid) {')
+    [void]$sb.AppendLine('                $profilePath = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\$sid" -ErrorAction SilentlyContinue).ProfileImagePath')
+    [void]$sb.AppendLine('                if ($profilePath) {')
+    [void]$sb.AppendLine('                    $userAlias = Join-Path $profilePath ''AppData\Local\Microsoft\WindowsApps\winget.exe''')
+    [void]$sb.AppendLine('                    if (Test-Path $userAlias) {')
+    [void]$sb.AppendLine('                        try { $null = & $userAlias --version 2>$null; if ($LASTEXITCODE -eq 0) { return $userAlias } } catch { }')
+    [void]$sb.AppendLine('                    }')
+    [void]$sb.AppendLine('                }')
+    [void]$sb.AppendLine('            }')
+    [void]$sb.AppendLine('        } catch { }')
+    [void]$sb.AppendLine('    }')
+    [void]$sb.AppendLine('    $packagePattern = Join-Path $env:ProgramFiles ''WindowsApps\Microsoft.DesktopAppInstaller_*_x64__8wekyb3d8bbwe\winget.exe''')
+    [void]$sb.AppendLine('    $found = Get-Item $packagePattern -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1')
+    [void]$sb.AppendLine('    if ($found) { return $found.FullName }')
+    [void]$sb.AppendLine('    $packagePattern2 = Join-Path $env:ProgramFiles ''WindowsApps\Microsoft.DesktopAppInstaller_*\winget.exe''')
+    [void]$sb.AppendLine('    $found2 = Get-Item $packagePattern2 -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1')
+    [void]$sb.AppendLine('    if ($found2) { return $found2.FullName }')
+    [void]$sb.AppendLine('    return $null')
+    [void]$sb.AppendLine('}')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('$script:WingetExe = Find-Winget')
+    [void]$sb.AppendLine('if (-not $script:WingetExe) {')
+    [void]$sb.AppendLine('    Write-Host ""')
+    [void]$sb.AppendLine('    Write-Host "ERROR: winget is not installed on this machine." -ForegroundColor Red')
+    [void]$sb.AppendLine('    Write-Host ""')
+    [void]$sb.AppendLine('    Write-Host "To install winget, do ONE of the following:" -ForegroundColor Yellow')
+    [void]$sb.AppendLine('    Write-Host "  1. Open Microsoft Store > search ''App Installer'' > Install/Update" -ForegroundColor White')
+    [void]$sb.AppendLine('    Write-Host "  2. Run: Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe" -ForegroundColor White')
+    [void]$sb.AppendLine('    Write-Host "  3. Download from: https://aka.ms/getwinget" -ForegroundColor White')
+    [void]$sb.AppendLine('    Write-Host ""')
     [void]$sb.AppendLine('    exit 1')
     [void]$sb.AppendLine('}')
+    [void]$sb.AppendLine('Write-Host "Using winget: $script:WingetExe" -ForegroundColor DarkGray')
     [void]$sb.AppendLine('')
 
     # Add progress tracker
     [void]$sb.AppendLine((Get-ProgressTrackerCode -ScriptName "install-software"))
 
+    # Add install result tracker and report generator
+    [void]$sb.AppendLine((Get-InstallTrackerCode))
+
+    # ── Exclude apps that come pre-installed on Windows 10/11 ──
+    # These are bundled with the OS, are framework/runtime dependencies, or are
+    # auto-deployed by IT/Intune.  They should not appear in the install script.
+    # Name patterns are matched case-insensitively.
+    $preInstalledPatterns = @(
+        # Edge sub-components
+        '^Microsoft Edge Game Assist$'
+        '^Microsoft Edge WebView2'
+        # Teams sub-components
+        '^Microsoft Teams Meeting Add-in'
+        '^Microsoft Teams SlimCore'
+        '^Microsoft Teams VDI'
+        # Windows built-in apps
+        '^Company Portal$'
+        '^Feedback Hub$'
+        '^Game Bar$'
+        '^Game Speech Window$'
+        '^Get Help$'
+        '^Microsoft Bing$'
+        '^Microsoft OneDrive$'
+        '^Microsoft People$'
+        '^Microsoft Photos$'
+        '^Microsoft Sticky Notes$'
+        '^Microsoft Store$'
+        '^Microsoft To Do$'
+        '^Paint$'
+        '^Phone Link$'
+        '^Quick Assist$'
+        '^Remote Help$'
+        '^Snipping Tool$'
+        '^Windows Advanced Settings$'
+        '^Windows App$'
+        '^Windows Calculator$'
+        '^Windows Camera$'
+        '^Windows Clock$'
+        '^Windows Media Player$'
+        '^Windows Notepad$'
+        '^Windows Security$'
+        '^Windows Sound Recorder$'
+        '^Windows Web Experience Pack$'
+        # Microsoft 365 / Office internal components
+        '^Microsoft 365 companion'
+        '^Microsoft 365 Copilot$'
+        '^Microsoft Engagement Framework$'
+        '^Microsoft\.Office\.ActionsServer$'
+        '^NarratorExtension'
+        '^OfficePushNotificationsUtility$'
+        '^WritingAssistant$'
+        '^Local AI Manager for Microsoft 365$'
+        # Runtime frameworks & dependencies (auto-installed as needed)
+        '^Microsoft\.UI\.Xaml\.'
+        '^WinAppRuntime\.'
+        '^WindowsAppRuntime\.'
+        '^Widgets Platform Runtime$'
+        '^Store Experience Host$'
+        '^Start Experiences App$'
+        '^Cross Device Experience Host$'
+        # System components / codecs that ship with Windows
+        '^AVC Encoder Video Extension$'
+        '^Ink\.Handwriting'
+        '^Speech Pack'
+        '^Xbox Game Bar Plugin$'
+        '^Xbox Identity Provider$'
+        '^Xbox TCUI$'
+        # More Windows built-in apps
+        '^App Installer$'
+        '^Mail and Calendar$'
+        '^Movies & TV$'
+        '^MSN Weather$'
+        '^News$'
+        '^OneNote Virtual Printer$'
+        '^Outlook for Windows$'
+        '^PC Manager$'
+        '^Power Automate$'
+        # Python Launcher is installed with Python itself
+        '^Python Launcher$'
+        # OEM / hardware-specific (won't match new hardware)
+        '^HP Audio Control$'
+        '^Intel.*Graphics'
+        '^ThunderboltTM'
+        '^EpmShellExtension$'
+        # Adobe / app internal sub-components
+        '^Reader Notification Client$'
+        # PWA bookmarks (not real installs)
+        '^YouTube$'
+        # Not available in winget
+        '^AI Toolkit Inference Agent$'
+    )
+    $allSoftware = @($ScanData.Software | Where-Object {
+        $name = $_.Name
+        $dominated = $false
+        foreach ($p in $preInstalledPatterns) {
+            if ($name -match $p) { $dominated = $true; break }
+        }
+        -not $dominated
+    })
+
     # Pre-compute software lists so counts are available for the header
-    $devSoftware = @($ScanData.Software | Where-Object { $_.IsDev -and $_.WingetId })
-    $genSoftware = @($ScanData.Software | Where-Object { $_.IsGeneral -and $_.WingetId })
-    $otherWithWinget = @($ScanData.Software | Where-Object { -not $_.IsDev -and -not $_.IsGeneral -and $_.WingetId })
+    $devSoftware = @($allSoftware | Where-Object { $_.IsDev -and $_.WingetId })
+    $genSoftware = @($allSoftware | Where-Object { $_.IsGeneral -and $_.WingetId })
+    $otherWithWinget = @($allSoftware | Where-Object { -not $_.IsDev -and -not $_.IsGeneral -and $_.WingetId })
 
     # Bulk install header with instructions
     [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
@@ -1947,13 +2376,8 @@ function Write-InstallScript {
         foreach ($s in $devSoftware) {
             $idx++
             $stepId = "dev-$idx"
-            $safeId = $s.WingetId -replace '[^a-zA-Z0-9._]', ''
-            [void]$sb.AppendLine("    if (Test-StepDone '$stepId') { Write-Host `"  [SKIP] $($s.Name) — already installed`" -ForegroundColor DarkGray }")
-            [void]$sb.AppendLine("    else {")
-            [void]$sb.AppendLine("        Write-Host `"Installing [$idx/$($devSoftware.Count)]: $($s.Name)`" -ForegroundColor Yellow")
-            [void]$sb.AppendLine("        winget install --id `"$($s.WingetId)`" --accept-package-agreements --accept-source-agreements")
-            [void]$sb.AppendLine("        Save-Progress '$stepId' 'done'")
-            [void]$sb.AppendLine("    }")
+            $safeName = $s.Name -replace "'", "''"
+            [void]$sb.AppendLine("    Invoke-WingetInstall -Name '$safeName' -Category 'Developer' -StepId '$stepId' -WingetArgs @('install','--id','$($s.WingetId)','--accept-package-agreements','--accept-source-agreements')")
             [void]$sb.AppendLine('')
         }
         [void]$sb.AppendLine('}')
@@ -1982,12 +2406,8 @@ function Write-InstallScript {
         foreach ($s in $genSoftware) {
             $idx++
             $stepId = "gen-$idx"
-            [void]$sb.AppendLine("    if (Test-StepDone '$stepId') { Write-Host `"  [SKIP] $($s.Name) — already installed`" -ForegroundColor DarkGray }")
-            [void]$sb.AppendLine("    else {")
-            [void]$sb.AppendLine("        Write-Host `"Installing [$idx/$($genSoftware.Count)]: $($s.Name)`" -ForegroundColor Yellow")
-            [void]$sb.AppendLine("        winget install --id `"$($s.WingetId)`" --accept-package-agreements --accept-source-agreements")
-            [void]$sb.AppendLine("        Save-Progress '$stepId' 'done'")
-            [void]$sb.AppendLine("    }")
+            $safeName = $s.Name -replace "'", "''"
+            [void]$sb.AppendLine("    Invoke-WingetInstall -Name '$safeName' -Category 'General' -StepId '$stepId' -WingetArgs @('install','--id','$($s.WingetId)','--accept-package-agreements','--accept-source-agreements')")
             [void]$sb.AppendLine('')
         }
         [void]$sb.AppendLine('}')
@@ -2016,12 +2436,8 @@ function Write-InstallScript {
         foreach ($s in $otherWithWinget) {
             $idx++
             $stepId = "other-$idx"
-            [void]$sb.AppendLine("    if (Test-StepDone '$stepId') { Write-Host `"  [SKIP] $($s.Name) — already installed`" -ForegroundColor DarkGray }")
-            [void]$sb.AppendLine("    else {")
-            [void]$sb.AppendLine("        Write-Host `"Installing [$idx/$($otherWithWinget.Count)]: $($s.Name)`" -ForegroundColor Yellow")
-            [void]$sb.AppendLine("        winget install --id `"$($s.WingetId)`" --accept-package-agreements --accept-source-agreements")
-            [void]$sb.AppendLine("        Save-Progress '$stepId' 'done'")
-            [void]$sb.AppendLine("    }")
+            $safeName = $s.Name -replace "'", "''"
+            [void]$sb.AppendLine("    Invoke-WingetInstall -Name '$safeName' -Category 'Other' -StepId '$stepId' -WingetArgs @('install','--id','$($s.WingetId)','--accept-package-agreements','--accept-source-agreements')")
             [void]$sb.AppendLine('')
         }
         [void]$sb.AppendLine('}')
@@ -2040,7 +2456,7 @@ function Write-InstallScript {
     [void]$sb.AppendLine('# .NET:               dotnet restore')
     [void]$sb.AppendLine('# Gradle:             gradle build')
     [void]$sb.AppendLine('')
-    [void]$sb.AppendLine('Write-Host "`nSoftware installation complete! Review any errors above.`n" -ForegroundColor Green')
+    [void]$sb.AppendLine((Get-InstallReportCode))
     [void]$sb.AppendLine('')
     [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
     [void]$sb.AppendLine('# MAC USERS: Use Homebrew instead of winget')
