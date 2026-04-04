@@ -940,7 +940,8 @@ function Get-UserConfigs {
                     if (Test-Path $manifest) {
                         $mj = Get-Content $manifest -Raw -Encoding UTF8 -ErrorAction SilentlyContinue | ConvertFrom-Json -ErrorAction SilentlyContinue
                         $extName = if ($mj.name -and $mj.name -notmatch '^__MSG_') { $mj.name } else { $extDir.Name }
-                        $chromeExts += @{ Name = $extName; Id = $extDir.Name; Version = $mj.version }
+                        # Chrome extensions are always from Chrome Web Store
+                        $chromeExts += @{ Name = $extName; Id = $extDir.Name; Version = $mj.version; Source = 'ChromeWebStore' }
                     }
                 }
             } catch { }
@@ -949,7 +950,9 @@ function Get-UserConfigs {
     $browserExtensions["Chrome"] = @{ Name = "Chrome Extensions"; Extensions = $chromeExts; Found = $chromeExts.Count -gt 0 }
     if ($chromeExts.Count -gt 0) { Write-Log "Chrome extensions: $($chromeExts.Count) found" -Level Success }
 
-    # Edge extensions
+    # Edge extensions — detect source store via update_url in manifest.json
+    # Chrome Web Store: update_url contains "clients2.google.com"
+    # Edge Add-ons:     update_url contains "edge.microsoft.com"
     $edgeExtDir = Join-Path $env:LOCALAPPDATA "Microsoft\Edge\User Data\Default\Extensions"
     $edgeExts = @()
     if (Test-Path $edgeExtDir) {
@@ -962,14 +965,21 @@ function Get-UserConfigs {
                     if (Test-Path $manifest) {
                         $mj = Get-Content $manifest -Raw -Encoding UTF8 -ErrorAction SilentlyContinue | ConvertFrom-Json -ErrorAction SilentlyContinue
                         $extName = if ($mj.name -and $mj.name -notmatch '^__MSG_') { $mj.name } else { $extDir.Name }
-                        $edgeExts += @{ Name = $extName; Id = $extDir.Name; Version = $mj.version }
+                        $source = if ($mj.update_url -match 'clients2\.google\.com') { 'ChromeWebStore' }
+                                  elseif ($mj.update_url -match 'edge\.microsoft\.com') { 'EdgeAddons' }
+                                  else { 'Unknown' }
+                        $edgeExts += @{ Name = $extName; Id = $extDir.Name; Version = $mj.version; Source = $source }
                     }
                 }
             } catch { }
         }
     }
     $browserExtensions["Edge"] = @{ Name = "Edge Extensions"; Extensions = $edgeExts; Found = $edgeExts.Count -gt 0 }
-    if ($edgeExts.Count -gt 0) { Write-Log "Edge extensions: $($edgeExts.Count) found" -Level Success }
+    if ($edgeExts.Count -gt 0) {
+        $fromChrome = @($edgeExts | Where-Object { $_.Source -eq 'ChromeWebStore' }).Count
+        $fromEdge   = @($edgeExts | Where-Object { $_.Source -eq 'EdgeAddons' }).Count
+        Write-Log "Edge extensions: $($edgeExts.Count) found ($fromEdge from Edge store, $fromChrome from Chrome Web Store)" -Level Success
+    }
 
     # Firefox add-ons
     $ffAddons = @()
@@ -2331,26 +2341,34 @@ function Write-InstallScript {
     [void]$sb.AppendLine('# HOW TO USE THIS SCRIPT')
     [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
     [void]$sb.AppendLine('#')
-    [void]$sb.AppendLine('# This script installs software in 3 sections:')
+    [void]$sb.AppendLine('# File to edit: Install-Software.ps1  (this file)')
+    [void]$sb.AppendLine('#')
+    [void]$sb.AppendLine("# This script installs software in multiple sections:")
     [void]$sb.AppendLine('#')
     [void]$sb.AppendLine("#   Section 1: DEVELOPER SOFTWARE  ($($devSoftware.Count) apps) — Git, VS Code, Node, Python...")
     [void]$sb.AppendLine("#   Section 2: GENERAL SOFTWARE    ($($genSoftware.Count) apps) — Chrome, Zoom, Slack...")
     [void]$sb.AppendLine("#   Section 3: OTHER SOFTWARE      ($($otherWithWinget.Count) apps) — Everything else detected")
+    [void]$sb.AppendLine('#   Section 4+: BROWSER EXTENSIONS — Edge, Chrome, Firefox (opens store pages)')
     [void]$sb.AppendLine('#')
     [void]$sb.AppendLine('# ALL sections are ACTIVE by default. Each asks for confirmation.')
     [void]$sb.AppendLine('#')
-    [void]$sb.AppendLine('# ➤ TO SKIP AN APP YOU DON''T NEED:')
-    [void]$sb.AppendLine('#   Scroll to the section, find the app, and add # before its winget line.')
+    [void]$sb.AppendLine('# ➤ TO SKIP AN ENTIRE SECTION:')
+    [void]$sb.AppendLine('#   When prompted, type ''n'' and press Enter to skip that section.')
     [void]$sb.AppendLine('#')
-    [void]$sb.AppendLine('#   Example — skip Docker but keep everything else:')
-    [void]$sb.AppendLine('#     # winget install --id "Docker.DockerDesktop" ...   ← has # = skipped')
-    [void]$sb.AppendLine('#     winget install --id "Git.Git" ...                  ← no # = will install')
+    [void]$sb.AppendLine('# ➤ TO SKIP INDIVIDUAL APPS YOU DON''T NEED:')
+    [void]$sb.AppendLine('#   1. Press Ctrl+C to stop this script')
+    [void]$sb.AppendLine('#   2. Open this file (Install-Software.ps1) in any text editor')
+    [void]$sb.AppendLine('#   3. Press Ctrl+F and search for the section, e.g. "SECTION 1"')
+    [void]$sb.AppendLine('#   4. Find the app''s "Invoke-WingetInstall" line and add # at the start')
+    [void]$sb.AppendLine('#   5. Save the file and re-run the script — it resumes where it left off')
     [void]$sb.AppendLine('#')
-    [void]$sb.AppendLine('# ➤ EACH SECTION ASKS FOR CONFIRMATION before installing anything.')
-    [void]$sb.AppendLine('#   You can also answer ''n'' to skip an entire section.')
+    [void]$sb.AppendLine('#   Example — to skip Roblox, change this:')
+    [void]$sb.AppendLine('#     Invoke-WingetInstall -Name ''Roblox'' ...')
+    [void]$sb.AppendLine('#   to this:')
+    [void]$sb.AppendLine('#     # Invoke-WingetInstall -Name ''Roblox'' ...')
     [void]$sb.AppendLine('#')
-    [void]$sb.AppendLine('# ➤ TIP: Search for "SECTION 1", "SECTION 2", "SECTION 3" in this file')
-    [void]$sb.AppendLine('#   to jump directly to each section.')
+    [void]$sb.AppendLine('# ➤ ALREADY-INSTALLED APPS ARE SKIPPED AUTOMATICALLY.')
+    [void]$sb.AppendLine('#   The script tracks progress. If you re-run it, completed steps are skipped.')
     [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
     [void]$sb.AppendLine('')
 
@@ -2358,13 +2376,14 @@ function Write-InstallScript {
     if ($devSoftware.Count -gt 0) {
         [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
         [void]$sb.AppendLine("# SECTION 1: DEVELOPER SOFTWARE ($($devSoftware.Count) apps)")
-        [void]$sb.AppendLine('# These were detected on your old machine. To skip any app,')
-        [void]$sb.AppendLine('# add # at the start of its winget line below.')
         [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
         [void]$sb.AppendLine('')
         [void]$sb.AppendLine('Write-Host "`n── Installing Developer Software ──`n" -ForegroundColor Cyan')
         [void]$sb.AppendLine("Write-Host `"  $($devSoftware.Count) apps to install. Review the list below.`" -ForegroundColor Gray")
-        [void]$sb.AppendLine("Write-Host `"  To skip any: edit this file and add # before its winget line.`" -ForegroundColor Gray")
+        [void]$sb.AppendLine('Write-Host "  To skip any app: press Ctrl+C, open Install-Software.ps1," -ForegroundColor Gray')
+        [void]$sb.AppendLine('Write-Host "  search for ''SECTION 1'', add # before that app''s line, save, and re-run." -ForegroundColor Gray')
+        $exampleDev = if ($devSoftware.Count -gt 2) { $devSoftware[2].Name } else { $devSoftware[0].Name }
+        [void]$sb.AppendLine("Write-Host `"  Example:  # Invoke-WingetInstall -Name '$exampleDev' ...  (skipped)`" -ForegroundColor DarkGray")
         [void]$sb.AppendLine('Write-Host ""')
         foreach ($s in $devSoftware) {
             [void]$sb.AppendLine("Write-Host `"    - $($s.Name)`" -ForegroundColor White")
@@ -2388,13 +2407,14 @@ function Write-InstallScript {
     if ($genSoftware.Count -gt 0) {
         [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
         [void]$sb.AppendLine("# SECTION 2: GENERAL SOFTWARE ($($genSoftware.Count) apps)")
-        [void]$sb.AppendLine('# Common applications detected on your old machine. To skip any app,')
-        [void]$sb.AppendLine('# add # at the start of its winget line below.')
         [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
         [void]$sb.AppendLine('')
         [void]$sb.AppendLine('Write-Host "`n── Installing General Software ──`n" -ForegroundColor Cyan')
         [void]$sb.AppendLine("Write-Host `"  $($genSoftware.Count) apps to install. Review the list below.`" -ForegroundColor Gray")
-        [void]$sb.AppendLine("Write-Host `"  To skip any: edit this file and add # before its winget line.`" -ForegroundColor Gray")
+        [void]$sb.AppendLine('Write-Host "  To skip any app: press Ctrl+C, open Install-Software.ps1," -ForegroundColor Gray')
+        [void]$sb.AppendLine('Write-Host "  search for ''SECTION 2'', add # before that app''s line, save, and re-run." -ForegroundColor Gray')
+        $exampleGen = if ($genSoftware.Count -gt 2) { $genSoftware[2].Name } else { $genSoftware[0].Name }
+        [void]$sb.AppendLine("Write-Host `"  Example:  # Invoke-WingetInstall -Name '$exampleGen' ...  (skipped)`" -ForegroundColor DarkGray")
         [void]$sb.AppendLine('Write-Host ""')
         foreach ($s in $genSoftware) {
             [void]$sb.AppendLine("Write-Host `"    - $($s.Name)`" -ForegroundColor White")
@@ -2418,13 +2438,14 @@ function Write-InstallScript {
     if ($otherWithWinget.Count -gt 0) {
         [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
         [void]$sb.AppendLine("# SECTION 3: OTHER SOFTWARE ($($otherWithWinget.Count) apps)")
-        [void]$sb.AppendLine('# Other applications detected on your old machine. To skip any app,')
-        [void]$sb.AppendLine('# add # at the start of its winget line below.')
         [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
         [void]$sb.AppendLine('')
         [void]$sb.AppendLine('Write-Host "`n── Installing Other Software ──`n" -ForegroundColor Cyan')
         [void]$sb.AppendLine("Write-Host `"  $($otherWithWinget.Count) apps to install. Review the list below.`" -ForegroundColor Gray")
-        [void]$sb.AppendLine("Write-Host `"  To skip any: edit this file and add # before its winget line.`" -ForegroundColor Gray")
+        [void]$sb.AppendLine('Write-Host "  To skip any app: press Ctrl+C, open Install-Software.ps1," -ForegroundColor Gray')
+        [void]$sb.AppendLine('Write-Host "  search for ''SECTION 3'', add # before that app''s line, save, and re-run." -ForegroundColor Gray')
+        $exampleOther = if ($otherWithWinget.Count -gt 2) { $otherWithWinget[2].Name } else { $otherWithWinget[0].Name }
+        [void]$sb.AppendLine("Write-Host `"  Example:  # Invoke-WingetInstall -Name '$exampleOther' ...  (skipped)`" -ForegroundColor DarkGray")
         [void]$sb.AppendLine('Write-Host ""')
         foreach ($s in $otherWithWinget) {
             [void]$sb.AppendLine("Write-Host `"    - $($s.Name)`" -ForegroundColor White")
@@ -2442,6 +2463,118 @@ function Write-InstallScript {
         }
         [void]$sb.AppendLine('}')
         [void]$sb.AppendLine('')
+    }
+
+    # ── Browser Extensions (Edge, Chrome, Firefox) ──
+    $browserBuiltInIds = @(
+        'cgjgjfacjflmgphhhepmbhhbgjieaecn'  # Edge Unminification Extension
+        'danmflhegmadnfikaeoakocddjockglk'  # Microsoft 365 Copilot extension
+        'jmjflgjpcpepeafmmgdpfkogkghcpiha'  # Edge relevant text changes
+        'kfbdpdaobnofkbopebjglnaadopfikhh'  # Edge DevTools Enhancements
+        'nmmhkkegccagdldgiimedpiccmgmieda'  # Chrome Web Store Payments
+        'pbamjmanmbobnmhmlagmkmaihjgphkla'  # Microsoft 365 Copilot (Chrome)
+    )
+    # Store URL map: Source field → base URL
+    $storeUrls = @{
+        'ChromeWebStore' = 'https://chromewebstore.google.com/detail/'
+        'EdgeAddons'     = 'https://microsoftedge.microsoft.com/addons/detail/'
+        'Unknown'        = 'https://chromewebstore.google.com/detail/'   # default fallback
+    }
+    $browserConfigs = @(
+        @{ Key = 'Edge';    DefaultStore = 'EdgeAddons';      StoreLabel = 'browser extension stores'; InstallAction = "install"; Prefix = 'edge' }
+        @{ Key = 'Chrome';  DefaultStore = 'ChromeWebStore';  StoreLabel = 'Chrome Web Store';         InstallAction = "click 'Add to Chrome'"; Prefix = 'chrome' }
+        @{ Key = 'Firefox'; DefaultStore = 'FirefoxAddons';   StoreLabel = 'Firefox Add-ons';          InstallAction = "click 'Add to Firefox'"; Prefix = 'firefox' }
+    )
+    # Firefox has a different URL scheme
+    $storeUrls['FirefoxAddons'] = 'https://addons.mozilla.org/en-US/firefox/addon/'
+
+    $sectionNum = 4
+    foreach ($bc in $browserConfigs) {
+        $bData = $ScanData.Configs.BrowserExtensions.Browsers.($bc.Key)
+        if (-not $bData -or -not $bData.Found) { continue }
+
+        $allExts = @($bData.Extensions | Where-Object { $_.Id -notin $browserBuiltInIds })
+        $namedExts   = @($allExts | Where-Object { $_.Name -ne $_.Id } | Sort-Object Name -Unique)
+        $unnamedExts = @($allExts | Where-Object { $_.Name -eq $_.Id } | Sort-Object Id)
+
+        if ($namedExts.Count -eq 0) { continue }
+
+        [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
+        [void]$sb.AppendLine("# SECTION $($sectionNum): $($bc.Key.ToUpper()) BROWSER EXTENSIONS ($($namedExts.Count) extensions)")
+        [void]$sb.AppendLine("# These were detected on your old machine's $($bc.Key) browser.")
+        [void]$sb.AppendLine("# Each extension's Store page opens for you to $($bc.InstallAction).")
+        [void]$sb.AppendLine("# To skip any: add # before its entry in the `$$($bc.Prefix)Extensions array.")
+        [void]$sb.AppendLine('#')
+        if ($unnamedExts.Count -gt 0) {
+            [void]$sb.AppendLine("# $($unnamedExts.Count) unnamed extensions (ID-only, likely built-in) are commented")
+            [void]$sb.AppendLine('# out at the bottom of the list. Uncomment any you need.')
+        }
+        [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
+        [void]$sb.AppendLine('')
+        [void]$sb.AppendLine("Write-Host `"`n── $($bc.Key) Browser Extensions ──`n`" -ForegroundColor Cyan")
+        [void]$sb.AppendLine("Write-Host `"  $($namedExts.Count) extensions to restore from $($bc.StoreLabel).`" -ForegroundColor Gray")
+        [void]$sb.AppendLine('Write-Host "  Each page opens the correct store — install from there." -ForegroundColor Gray')
+        [void]$sb.AppendLine('Write-Host "  Opens in batches of 5." -ForegroundColor Gray')
+        [void]$sb.AppendLine("Write-Host `"  To skip any: press Ctrl+C, open Install-Software.ps1,`" -ForegroundColor Gray")
+        [void]$sb.AppendLine("Write-Host `"  search for 'SECTION $sectionNum', add # before that extension's line, save, and re-run.`" -ForegroundColor Gray")
+        $exampleExt = ($namedExts | Select-Object -First 1).Name -replace "'", "''"
+        [void]$sb.AppendLine("Write-Host `"  Example:  # @{ Name = '$exampleExt' ...  (skipped)`" -ForegroundColor DarkGray")
+        [void]$sb.AppendLine('Write-Host ""')
+        foreach ($ext in $namedExts) {
+            $safeName = $ext.Name -replace '"', '`"'
+            [void]$sb.AppendLine("Write-Host `"    - $safeName`" -ForegroundColor White")
+        }
+        [void]$sb.AppendLine('Write-Host ""')
+        [void]$sb.AppendLine("`$confirm = Read-Host `"Open $($bc.Key) extension store pages for install? [Y/n]`"")
+        [void]$sb.AppendLine('if ($confirm -notmatch ''^[nN]'') {')
+        [void]$sb.AppendLine("    `$$($bc.Prefix)Extensions = @(")
+        foreach ($ext in $namedExts) {
+            $safeName = $ext.Name -replace "'", "''"
+            # Determine the correct store URL for this extension
+            $source = if ($ext.Source) { $ext.Source } else { $bc.DefaultStore }
+            $extStoreUrl = if ($storeUrls.ContainsKey($source)) { $storeUrls[$source] } else { $storeUrls[$bc.DefaultStore] }
+            [void]$sb.AppendLine("        @{ Name = '$safeName'; Id = '$($ext.Id)'; Url = '$extStoreUrl$($ext.Id)' }")
+        }
+        if ($unnamedExts.Count -gt 0) {
+            [void]$sb.AppendLine("        # ── Unnamed extensions (ID-only, likely built-in $($bc.Key) components) ──")
+            [void]$sb.AppendLine('        # Uncomment any you recognise after checking the store page.')
+            foreach ($ext in $unnamedExts) {
+                $source = if ($ext.Source) { $ext.Source } else { $bc.DefaultStore }
+                $extStoreUrl = if ($storeUrls.ContainsKey($source)) { $storeUrls[$source] } else { $storeUrls[$bc.DefaultStore] }
+                [void]$sb.AppendLine("        # @{ Name = '$($ext.Id)'; Id = '$($ext.Id)'; Url = '$extStoreUrl$($ext.Id)' }")
+            }
+        }
+        [void]$sb.AppendLine('    )')
+        [void]$sb.AppendLine('')
+        [void]$sb.AppendLine('    $batchSize = 5')
+        [void]$sb.AppendLine("    for (`$i = 0; `$i -lt `$$($bc.Prefix)Extensions.Count; `$i += `$batchSize) {")
+        [void]$sb.AppendLine("        `$end = [Math]::Min(`$i + `$batchSize - 1, `$$($bc.Prefix)Extensions.Count - 1)")
+        [void]$sb.AppendLine("        `$batch = `$$($bc.Prefix)Extensions[`$i..`$end]")
+        [void]$sb.AppendLine('        $batchNum = [Math]::Floor($i / $batchSize) + 1')
+        [void]$sb.AppendLine("        `$totalBatches = [Math]::Ceiling(`$$($bc.Prefix)Extensions.Count / `$batchSize)")
+        [void]$sb.AppendLine('        Write-Host "`n  Batch $batchNum of $totalBatches — opening $($batch.Count) extension pages..." -ForegroundColor Yellow')
+        [void]$sb.AppendLine('        foreach ($ext in $batch) {')
+        [void]$sb.AppendLine("            `$stepId = `"$($bc.Prefix)-`$(`$ext.Id)`"")
+        [void]$sb.AppendLine('            if (Test-StepDone $stepId) {')
+        [void]$sb.AppendLine('                Write-Host "    [SKIP] $($ext.Name) — already opened" -ForegroundColor DarkGray')
+        [void]$sb.AppendLine("                Add-InstallResult -Name `$ext.Name -Category '$($bc.Key) Extension' -Status 'AlreadyDone' -Detail 'Opened in previous run'")
+        [void]$sb.AppendLine('                continue')
+        [void]$sb.AppendLine('            }')
+        [void]$sb.AppendLine('            Write-Host "    Opening: $($ext.Name)" -ForegroundColor White')
+        [void]$sb.AppendLine('            Start-Process $ext.Url')
+        [void]$sb.AppendLine('            Save-Progress $stepId ''done''')
+        [void]$sb.AppendLine("            Add-InstallResult -Name `$ext.Name -Category '$($bc.Key) Extension' -Status 'Manual' -Detail `$ext.Url")
+        [void]$sb.AppendLine('        }')
+        [void]$sb.AppendLine("        if (`$end -lt (`$$($bc.Prefix)Extensions.Count - 1)) {")
+        [void]$sb.AppendLine('            Write-Host ""')
+        [void]$sb.AppendLine('            Read-Host "    Press Enter for next batch (or Ctrl+C to stop)"')
+        [void]$sb.AppendLine('        }')
+        [void]$sb.AppendLine('    }')
+        [void]$sb.AppendLine('    Write-Host ""')
+        [void]$sb.AppendLine('    Write-Host "  All extension pages opened. Install from each store page." -ForegroundColor Green')
+        [void]$sb.AppendLine('}')
+        [void]$sb.AppendLine('')
+        $sectionNum++
     }
 
     # Post-install config
