@@ -2890,7 +2890,10 @@ function Write-TransferScript {
             foreach ($f in $cFolders) {
                 [void]$sb.AppendLine("Write-Host `"    $($f.Name)`" -ForegroundColor White")
             }
-            [void]$sb.AppendLine("Write-Host `"  To skip specific folders: exit, edit this script, comment out their robocopy lines.`" -ForegroundColor DarkGray")
+            [void]$sb.AppendLine("Write-Host `"  To skip a folder: press Ctrl+C, open Transfer-Data.ps1,`" -ForegroundColor DarkGray")
+            [void]$sb.AppendLine("Write-Host `"  search for 'C: Drive Custom Folders', add # before that folder's robocopy block, save, and re-run.`" -ForegroundColor DarkGray")
+            $exampleCFolder = if ($cFolders.Count -gt 0) { $cFolders[-1].Name } else { 'FolderName' }
+            [void]$sb.AppendLine("Write-Host `"  Example:  # robocopy `"C:\$exampleCFolder`" ...  (skipped)`" -ForegroundColor DarkGray")
             [void]$sb.AppendLine("`$confirmDriveC = Read-Host `"  Transfer C: drive custom folders ($($cFolders.Count) folders)? [Y/n]`"")
             [void]$sb.AppendLine("if (`$confirmDriveC -notmatch '^[nN]') {")
 
@@ -2943,7 +2946,10 @@ function Write-TransferScript {
                 foreach ($f in $folders) {
                     [void]$sb.AppendLine("Write-Host `"    $($f.Name)`" -ForegroundColor White")
                 }
-                [void]$sb.AppendLine("Write-Host `"  To skip specific folders: exit, edit this script, comment out their robocopy lines.`" -ForegroundColor DarkGray")
+                [void]$sb.AppendLine("Write-Host `"  To skip a folder: press Ctrl+C, open Transfer-Data.ps1,`" -ForegroundColor DarkGray")
+                [void]$sb.AppendLine("Write-Host `"  search for 'Drive $($drv):', add # before that folder's robocopy block, save, and re-run.`" -ForegroundColor DarkGray")
+                $exampleFolder = if ($folders.Count -gt 2) { $folders[2].Name } else { $folders[0].Name }
+                [void]$sb.AppendLine("Write-Host `"  Example:  # robocopy `"$($drv):\$exampleFolder`" ...  (skipped)`" -ForegroundColor DarkGray")
                 [void]$sb.AppendLine("`$confirmDrive$drv = Read-Host `"  Transfer $($drv): drive ($($folders.Count) folders)? [Y/n]`"")
                 [void]$sb.AppendLine("if (`$confirmDrive$drv -notmatch '^[nN]') {")
 
