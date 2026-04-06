@@ -1,624 +1,311 @@
-# new-laptop-setup
+# Migrate-Laptop
 
-### Migrate-Laptop — One script. Zero dependencies. Run it on your old laptop, copy the output folder to your new one, done.
+**One script. Zero dependencies. Migrates your Windows laptop in minutes.**
 
-Scans your old Windows laptop — software, configs, data folders — and generates ready-to-run scripts so you can set up your new machine in minutes instead of days.
+Run it on your old laptop → it scans everything → generates ready-to-run scripts → you run them on the new laptop. Done.
 
-## The Problem
+---
 
-Getting a new laptop should be exciting, not stressful. But in reality:
-- You forget what software you had installed
-- You lose configs (Git, SSH keys, VS Code extensions, environment variables...)
-- You accidentally copy gigabytes of `node_modules`, `.venv`, and build junk
-- You spend days reinstalling and reconfiguring everything
-- You realize weeks later that you forgot something important
+## What It Does
 
-## What This Does
+1. **Scans** your old laptop — installed software, configs, data folders, settings
+2. **Generates** scripts and reports you can review before running
+3. **You run** the scripts on your new laptop to install apps and transfer data
 
-```
-OLD LAPTOP (your current one)                    NEW LAPTOP (the new one)
-════════════════════════════                     ════════════════════════
+Nothing is deleted or modified on your old laptop. Every script asks before doing anything.
 
-Step 1: SCAN                                     Step 0: PREPARE
-┌─────────────────────────┐                      ┌─────────────────────────┐
-│ Run: .\Migrate-Laptop.ps1                      │ 1. Create C:\Migration  │
-│ Choose [1] Full Migration│                      │ 2. Right-click → Share  │
-│                         │                      │ 3. Note laptop name/IP  │
-│ Scans:                  │                      │    (e.g. NEW-PC or      │
-│  • All drives (C,D,E)   │                      │     192.168.1.50)       │
-│  • 172 software apps    │                      └─────────────────────────┘
-│  • Browser extensions   │
-│  • Office add-ins       │
-│  • .gitconfig, SSH keys │
-│  • VS Code extensions   │
-│  • Env vars, WiFi...    │
-│                         │
-│ Generates:              │
-│  📁 migration-output/   │
-│   ├─ Install-Software.ps1
-│   ├─ Transfer-Data.ps1  │
-│   ├─ Restore-Configs.ps1│
-│   ├─ Verify-Transfer.ps1│
-│   ├─ reports (.html/.md)│
-│   └─ scan cache (.json) │
-└─────────┬───────────────┘
-          │
-          │ ⚠️ Review scripts
-          │ (check for secrets in
-          │  Restore-Configs.ps1)
-          │
-Step 2: TRANSFER DATA (over WiFi)
-┌─────────────────────────┐      robocopy        ┌─────────────────────────┐
-│ Run: .\Transfer-Data.ps1│─────────────────────► │ C:\Migration\           │
-│                         │   \\NEW-PC\Migration  │   ├─ Desktop\           │
-│ Choose [1] Network      │                       │   ├─ Documents\         │
-│ Enter: NEW-PC           │   Per-folder confirm: │   ├─ Downloads\         │
-│ Enter: Migration        │   Desktop (918 MB)? Y │   ├─ D_Automation\      │
-│                         │   Documents (3.8GB)? Y│   ├─ E_projects\        │
-│ Skips junk:             │   node_modules? SKIP  │   └─ ...                │
-│  node_modules, .venv,   │   .cache? SKIP        │                         │
-│  target, build, *.log   │                       │ If interrupted → re-run │
-│                         │                       │ Resumes from last folder│
-└─────────────────────────┘                       └─────────────────────────┘
-          │
-          │ Also copy migration-output/
-          │ folder itself to new laptop
-          │
-          ▼
-                                                  Step 3: INSTALL SOFTWARE
-                                                  ┌─────────────────────────┐
-                                                  │ Run: .\Install-Software │
-                                                  │           .ps1          │
-                                                  │                         │
-                                                  │ Dev (16 apps)? Y        │
-                                                  │  Installing [1/16] Git  │
-                                                  │  Installing [2/16] Node │
-                                                  │  ...via winget          │
-                                                  │                         │
-                                                  │ General (18 apps)? Y    │
-                                                  │  Installing Chrome...   │
-                                                  │  Installing Zoom...     │
-                                                  │                         │
-                                                  │ Other: commented out    │
-                                                  │ (uncomment what u need) │
-                                                  │                         │
-                                                  │ If interrupted → resume │
-                                                  └───────────┬─────────────┘
-                                                              │
-                                                  Step 4: RESTORE CONFIGS
-                                                  ┌─────────────────────────┐
-                                                  │ Run: .\Restore-Configs  │
-                                                  │           .ps1          │
-                                                  │                         │
-                                                  │ .gitconfig? Y ✓         │
-                                                  │ SSH keys? MANUAL (USB)  │
-                                                  │ VS Code extensions? Y   │
-                                                  │  code --install-ext ... │
-                                                  │ PS profile? Y ✓         │
-                                                  │ Env vars? Y ✓           │
-                                                  │ npm packages? Y ✓       │
-                                                  │ pip packages? Y ✓       │
-                                                  │                         │
-                                                  │ Browser ext → sign in   │
-                                                  │ Office add-ins → sign in│
-                                                  │ WiFi/theme → MS account │
-                                                  └───────────┬─────────────┘
-                                                              │
-                                                  Step 5: VERIFY
-                                                  ┌─────────────────────────┐
-                                                  │ Run: .\Verify-Transfer  │
-                                                  │           .ps1          │
-                                                  │                         │
-                                                  │ Compares src vs dest:   │
-                                                  │  Dir count, file count  │
-                                                  │  One level deep check   │
-                                                  │                         │
-                                                  │ D:\AI           [OK]    │
-                                                  │ D:\Automation   [OK]    │
-                                                  │ E:\lonza        [!!]    │
-                                                  │ C:\tmp          [--]    │
-                                                  │                         │
-                                                  │ Then also run:          │
-                                                  │ .\Migrate-Laptop.ps1    │
-                                                  │ Choose [6] Checklist    │
-                                                  │                         │
-                                                  │ [1] Git works? ✓        │
-                                                  │ [2] SSH keys? ✓         │
-                                                  │ [3] VS Code? ✓          │
-                                                  │ [4] Node.js? ✓          │
-                                                  │ [5] Python? ✓           │
-                                                  │ [6] Bookmarks? ✓        │
-                                                  │ [7] Projects build? ✓   │
-                                                  └───────────┬─────────────┘
-                                                              │
-          ┌───────────────────────────────────────────────────┘
-          │ Once 100% satisfied...
-          ▼
-Step 6: CLEAN UP (optional)
-┌─────────────────────────┐
-│ On OLD laptop:          │
-│ Run: .\Migrate-Laptop.ps1
-│ Choose [5] Clean Up     │
-│                         │
-│ ██ WARNING ██           │
-│ Type: I HAVE VERIFIED   │
-│ Type: DELETE MY DATA    │
-│                         │
-│ Deletes personal data,  │
-│ browser profiles, WiFi, │
-│ credentials, SSH keys   │
-│                         │
-│ Keeps: Windows, apps,   │
-│ domain login            │
-└─────────────────────────┘
-```
+---
 
-You stay in full control — **every generated script asks for confirmation** before doing anything.
-Nothing is deleted or modified on your old laptop. Ever (unless you choose option [5] Clean Up).
+## Quick Start (3 minutes)
 
-## Quick Start
+### 1. Download
 
-### Download
-
-**Option A: Clone the repo**
-```bash
+```powershell
+# Option A: Clone
 git clone https://github.com/gauravkhuraana/new-laptop-setup.git
 cd new-laptop-setup
-```
 
-**Option B: Download just the script**
-```powershell
+# Option B: Download just the script
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/gauravkhuraana/new-laptop-setup/main/Migrate-Laptop.ps1" -OutFile "Migrate-Laptop.ps1"
 ```
 
-### Run it
+### 2. Run on your OLD laptop
 
 ```powershell
-# Just run it — interactive wizard guides you through everything:
 .\Migrate-Laptop.ps1
 ```
 
-That's it. A menu appears:
+A menu appears — pick **[3] Scan & Prepare**. It takes 1–2 minutes.
 
-```
-  ┌──────────────────────────────────────────────────────────┐
-  │  Welcome! Pick where you'd like to start:                │
-  ├──────────────────────────────────────────────────────────┤
-  │                                                          │
-  │  UNDERSTAND FIRST                                        │
-  │  [1] What is this tool? (start here if first time)       │
-  │  [2] I want to do it manually (no automation)            │
-  │                                                          │
-  │  USE THE TOOL                                            │
-  │  [3] Scan & Prepare (SAFE: read-only scan)               │
-  │  [4] Scan Only (report only, no scripts)                 │
-  │  [5] Generate Scripts from Previous Scan                 │
-  │                                                          │
-  │  AFTER MIGRATION                                         │
-  │  [6] Post-Migration Checklist (run on NEW laptop)        │
-  │  [7] Clean Up Old Laptop (DESTRUCTIVE — cannot undo!)    │
-  │                                                          │
-  └──────────────────────────────────────────────────────────┘
-```
+### 3. Copy `migration-output/` to your new laptop
 
-**First time?** Pick **[1]** — it explains what the tool can do, what it can't, and how it works.
-When ready, pick **[3]** on your old laptop to scan and generate scripts.
+Use USB drive, network share, or cloud sync.
 
-## Step-by-Step Migration Guide
-
-### Step 1: Scan your old laptop
+### 4. Run the scripts on your NEW laptop
 
 ```powershell
-# On your OLD laptop — full scan + script generation:
-.\Migrate-Laptop.ps1
-# Choose option [3] Scan & Prepare
-```
-
-This creates a `migration-output/` folder with everything you need.
-
-### Step 2: Review the reports
-
-Open the generated HTML report in your browser — it's interactive with tabs, search, and filtering:
-
-```
-migration-output/
-├── scan-report-2026-03-29.html    ← Open this! Interactive dark-themed report
-├── scan-report-2026-03-29.md      ← Markdown version
-├── scan-2026-03-29.json           ← Raw data (can re-generate scripts later)
-├── Install-Software.ps1           ← Ready to run on new laptop
-├── Transfer-Data.ps1              ← Ready to run (old → new)
-├── Restore-Configs.ps1            ← Ready to run on new laptop
-├── Verify-Transfer.ps1            ← Run after transfer to verify completeness
-└── migration-for-ai-review.md     ← Paste into ChatGPT/Copilot for advice
-```
-
-### Step 3: Copy the output folder to your new laptop
-
-Use a USB drive, network share, or cloud sync — just get the `migration-output/` folder to your new machine.
-
-### Step 4: Run the scripts on your new laptop (in order)
-
-```powershell
-# 1. Install all your software via winget
+# Install your apps (via winget)
 .\Install-Software.ps1
 
-# 2. Transfer your data (choose: network, USB, or cloud)
+# Transfer your data (Documents, Projects, etc.)
 .\Transfer-Data.ps1
 
-# 3. Verify the transfer (compare source vs destination counts)
+# Verify nothing was missed
 .\Verify-Transfer.ps1
-
-# 4. Restore your configs (Git, VS Code extensions, env vars, etc.)
-.\Restore-Configs.ps1
 ```
 
-Each script asks for confirmation before every section. Nothing runs without your approval.
+### 5. Follow the Restoration Guide
 
-**Resume support:** If a script is interrupted (laptop sleeps, network drops, you close the window), just re-run it. Completed steps are tracked in a progress file and automatically skipped:
+Open the HTML report (`scan-report-*.html`) → click the **Restoration Guide** tab. It has copy-paste commands for Git config, VS Code extensions, env variables, npm/pip packages, and more.
 
-```
-  Resuming from previous run — 12 steps already completed.
-  To start fresh, delete: install-software-progress.json
+---
 
-  [SKIP] Git — already installed
-  [SKIP] Node.js — already installed
-  Installing [13/16]: Docker Desktop    ← picks up where you left off
-```
+## What Gets Generated
 
-To start fresh, delete the progress file (`*-progress.json`) next to the script.
+After scanning, a `migration-output/` folder is created with:
 
-### Step 5: Run the post-migration checklist
+| File | What it does | Run where? |
+|------|-------------|------------|
+| `Install-Software.ps1` | Installs apps via winget (edit to skip any) | New laptop |
+| `Transfer-Data.ps1` | Copies data folders with smart exclusions | Old laptop |
+| `Verify-Transfer.ps1` | Compares source vs destination after transfer | Old laptop |
+| `scan-report-*.html` | Interactive report — software, configs, data, restoration guide | Open in browser |
+| `scan-report-*.md` | Same report in Markdown | Any editor |
+| `migration-for-ai-review.md` | Paste into ChatGPT/Copilot for personalized migration advice | AI assistant |
+| `scan-*.json` | Raw scan data (re-generate scripts without re-scanning) | N/A |
 
-```powershell
-# Back to the main script, choose option [6]:
-.\Migrate-Laptop.ps1
-# Choose option [6] Post-Migration Checklist
-```
+> **No secrets are stored** in any generated file. Environment variable names are listed but values are not.
 
-Walks you through verifying everything works: Git, SSH, VS Code, Node, Python, bookmarks, etc.
-
-### Step 6: Clean up the old laptop (optional)
-
-Once you're **100% satisfied** the new laptop is fully working:
-
-```powershell
-# On the OLD laptop — choose option [7]:
-.\Migrate-Laptop.ps1
-# Choose option [7] Clean Up Old Laptop
-```
-
-> **This is destructive and irreversible.** It requires typing `I HAVE VERIFIED` and then `DELETE MY DATA` to proceed. Each step also asks individual confirmation.
-
-What it cleans (each step asks **[y/N]** individually):
-
-| Step | What it does |
-|------|-------------|
-| 1 | Deletes contents of Desktop, Documents, Downloads, Pictures, Videos, Music |
-| 2 | Deletes custom data folders on D:\, E:\, etc. |
-| 3 | Removes Chrome, Edge, Firefox profile data (history, passwords, extensions, cookies) |
-| 4 | Guides you through signing out of OneDrive, Teams, Google, iCloud |
-| 5 | Deletes all saved WiFi passwords |
-| 6 | Clears Windows Credential Manager (Git tokens, app passwords) |
-| 7 | Deletes SSH keys and .gitconfig |
-| 8 | Removes user environment variables (keeps PATH, TEMP) |
-| 9 | Empties the Recycle Bin |
-
-**What it does NOT touch:** Windows itself, installed programs, your domain/work login. The laptop stays bootable and usable — just clean of personal data.
+---
 
 ## What It Scans
 
-### Software (172 apps detected in testing)
+| Category | What's detected |
+|----------|----------------|
+| **Software** | All installed apps, categorized as Developer / General / Other with winget IDs |
+| **Git** | `.gitconfig` (user name, email), SSH key file names |
+| **VS Code** | Extensions list, settings path, Insiders extensions |
+| **Dev tools** | npm global packages, pip packages, PowerShell profile |
+| **Windows settings** | WiFi profiles, theme, wallpaper, mouse, keyboard, display, power, sound |
+| **Data folders** | User profile (Desktop, Documents, etc.) + custom folders on all drives |
+| **Other** | Printers, mapped drives, WSL distros, startup programs, Chocolatey/Scoop packages, custom fonts, Outlook signatures, Docker images/volumes, Credential Manager count, hosts file, scheduled tasks, browser bookmarks |
 
-Categorized automatically:
+---
 
-| Category | Examples | In Install script |
-|----------|----------|-------------------|
-| **Developer** (16 found) | VS Code, Git, Node.js, Python, Java, Docker, Azure CLI, PowerShell 7 | ✅ Active — runs by default |
-| **General** (18 found) | Chrome, Edge, 7-Zip, Zoom, Slack, Teams, ShareX, PowerToys | ✅ Active — runs by default |
-| **Other** (138 found) | Everything else on your machine | 💤 Commented out — uncomment what you need |
+## Resume Support
 
-Uses `winget` IDs so installation is one command per app. Knows 60+ common developer and general apps.
+If any script is interrupted (network drop, laptop sleeps, you close the window), just re-run it. Completed steps are saved in a `*-progress.json` file and automatically skipped. To start fresh, delete the progress file.
 
-### Configurations
-
-| Config | How it's handled |
-|--------|-----------------|
-| `.gitconfig` | Captured and restored automatically |
-| SSH keys (`.ssh/`) | **Flagged for manual USB transfer** (security) |
-| VS Code extensions | Full list captured, batch-installed via `code --install-extension` |
-| VS Code settings | Path noted; recommends Settings Sync |
-| PowerShell profile | Content captured and restored |
-| Windows Terminal settings | Content captured; notes Microsoft account sync |
-| Environment variables | All user-level vars captured and restored via `[Environment]::SetEnvironmentVariable` |
-| Browser bookmarks | Chrome + Edge files detected; recommends browser sign-in sync |
-| Outlook rules | **Manual export required** (noted in report) |
-| Scheduled tasks | User-created tasks listed in report |
-| npm global packages | Captured and batch-installed via `npm install -g` |
-| pip user packages | Captured and batch-installed via `pip install --user` |
-| Hosts file entries | Custom entries listed; admin restore noted |
-
-### Data Folders
-
-- **User profile**: Desktop, Documents, Downloads, Pictures, Videos, Music, OneDrive
-- **Custom folders**: Scans all drives (C, D, E, etc.) for non-system folders
-- **Smart exclusions**: Automatically skips junk (see below)
-
-## Smart Exclusions
-
-The transfer script automatically skips things you should never copy:
-
-```
-Folders:  .git, .svn, .hg,
-          node_modules, .venv, venv, packages, .nuget,
-          __pycache__, .pytest_cache, .cache, .tox,
-          dist, build, target, bin, obj,
-          .vs, .idea, .sonarlint, .angular,
-          .gradle, .m2, .terraform,
-          TestResults, test-results,
-          Cache, GPUCache, tdata, CachedData, Crashpad,
-          $RECYCLE.BIN, System Volume Information
-
-Files:    *.log, *.tmp, *.temp, *.bak, *.pyc, *.class, *.o, *.obj,
-          *.exe, *.dll, Thumbs.db, desktop.ini
-
-Auto-excluded folders on C: drive:
-          Python3*, Ruby*, Go, PHP, Rust, Maven, Gradle,
-          officeclient.*, intel, AMD, NVIDIA, Dell, HP,
-          inetpub, msys*, MinGW, Cache
-
-Auto-excluded everywhere:
-          OneDrive* folders (sync automatically)
-```
-
-After transferring your projects, rebuild dependencies fresh:
-```bash
-npm install              # Node.js projects
-pip install -r requirements.txt  # Python projects
-mvn clean install        # Java/Maven projects
-dotnet restore           # .NET projects
-```
+---
 
 ## Transfer Methods
 
-The transfer script supports three ways to move your data:
+| Method | How |
+|--------|-----|
+| **USB drive** | Copy `migration-output/` to USB → plug into new laptop |
+| **Network share** | On new laptop: create & share a folder. On old laptop: run `Transfer-Data.ps1` → enter `\\NEW-PC\ShareName` |
+| **Cloud** | Copy into OneDrive/Google Drive/Dropbox → download on new laptop |
 
-| Method | Best for | How it works |
-|--------|----------|-------------|
-| **Network** | Both laptops on same WiFi/LAN | Robocopy to `\\NEW-LAPTOP\SharedFolder` |
-| **USB / External Drive** | Large amounts of data | Robocopy to `F:\Migration\` |
-| **Cloud** | Already using OneDrive/Google Drive | Guidance on syncing folders |
+---
 
-### Setting up network transfer
+## Smart Exclusions
 
-On your **new laptop**:
-1. Create a folder (e.g., `C:\Migration`)
-2. Right-click → Properties → Sharing → Share
-3. Note the computer name or IP
+Transfer-Data.ps1 automatically skips files/folders you should never copy:
 
-On your **old laptop**:
+- **Dependencies**: `node_modules`, `.venv`, `packages`, `.nuget`, `__pycache__`, `.gradle`, `.m2`
+- **Build output**: `dist`, `build`, `target`, `bin`, `obj`
+- **IDE caches**: `.vs`, `.idea`, `.angular`, `CachedData`
+- **VCS**: `.git`, `.svn`, `.hg`
+- **System junk**: `$RECYCLE.BIN`, `System Volume Information`, `Thumbs.db`, `desktop.ini`
+- **OneDrive folders**: Skipped (they sync automatically)
+
+After transferring projects, rebuild dependencies fresh: `npm install`, `pip install -r requirements.txt`, etc.
+
+---
+
+## Command Line Options
+
 ```powershell
-.\Transfer-Data.ps1
-# Choose [1] Network
-# Enter: NEW-LAPTOP (or 192.168.1.50)
-# Enter: Migration
+.\Migrate-Laptop.ps1                    # Interactive wizard (recommended)
+.\Migrate-Laptop.ps1 -ScanOnly          # Reports only, no scripts
+.\Migrate-Laptop.ps1 -FromCache         # Generate scripts from previous scan
+.\Migrate-Laptop.ps1 -OutputDir "D:\out" # Custom output folder
 ```
 
-## All Options
+---
 
-```powershell
-# Interactive wizard (recommended):
-.\Migrate-Laptop.ps1
-
-# Scan only — no scripts generated, just reports:
-.\Migrate-Laptop.ps1 -ScanOnly
-
-# Generate scripts from a previous scan (no re-scanning):
-.\Migrate-Laptop.ps1 -FromCache
-
-# Generate from a specific scan file:
-.\Migrate-Laptop.ps1 -FromCache -CacheFile ".\migration-output\scan-2026-03-29.json"
-
-# Custom output directory:
-.\Migrate-Laptop.ps1 -OutputDir "D:\my-migration"
-```
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `OutputDir` | `./migration-output` | Where reports and scripts are saved |
-| `ScanOnly` | `false` | Scan and generate reports only (no scripts) |
-| `FromCache` | `false` | Skip scanning, generate scripts from previous scan JSON |
-| `CacheFile` | auto-detected | Path to specific scan cache JSON file |
-
-## Output Files
-
-After a full run, your `migration-output/` folder contains:
-
-| File | Purpose | When to use |
-|------|---------|-------------|
-| `scan-report-*.html` | Interactive report (dark theme, tabs, filters) | Open in browser to review everything |
-| `scan-report-*.md` | Markdown report | Share or read in any editor |
-| `scan-*.json` | Raw scan data | Re-generate scripts later without re-scanning |
-| `Install-Software.ps1` | Installs apps via winget | Run on **new** laptop (review first!) |
-| `Transfer-Data.ps1` | Copies data with smart exclusions | Run on **old** laptop (pushes data to new) |
-| `Restore-Configs.ps1` | Restores Git, VS Code, env vars, etc. | Run on **new** laptop |
-| `Verify-Transfer.ps1` | Compares source vs destination folder/file counts | Run on **old** laptop after transfer |
-| `migration-for-ai-review.md` | AI-friendly summary | Paste into ChatGPT/Copilot for personalized advice |
-| `migration-log-*.txt` | Detailed log of the scan | Troubleshooting |
-| `transfer-log-*.txt` | Timestamped robocopy log per transfer run | Check transfer details |
-
-## Don't Forget (Manual Steps)
-
-These can't be automated — the report flags them for you:
-
-- [ ] **Outlook rules** — Export via File → Manage Rules & Alerts → Options → Export Rules
-- [ ] **SSH keys** — Copy `.ssh/` folder via USB drive (never over unencrypted network)
-- [ ] **License keys** — Note down software license keys before wiping old laptop
-- [ ] **Browser passwords** — Sign into Chrome/Edge/Firefox to sync passwords
-- [ ] **2FA / Authenticator apps** — Ensure backup codes are saved or app is synced
-- [ ] **VPN configs** — Screenshot or export connection settings
-- [ ] **Printer configs** — Note network printer IPs and names
-- [ ] **Credential Manager** — Review Windows Credential Manager for saved credentials
-
-## ⚠️ Secrets & Sensitive Data — Read This
-
-The generated scripts may contain **sensitive information from your old machine**. This is by design (so configs can be restored), but you need to be aware:
-
-### What gets embedded in generated scripts
-
-| File | What's inside | Risk |
-|------|--------------|------|
-| `Restore-Configs.ps1` | Your `.gitconfig` content (full text) | May contain GitHub tokens if you use credential helpers |
-| `Restore-Configs.ps1` | Your PowerShell profile (full text) | May contain API keys, custom functions with secrets |
-| `Restore-Configs.ps1` | All user environment variable names + values | **High risk** — API keys, tokens, connection strings often stored here |
-| `Restore-Configs.ps1` | Custom hosts file entries | Low risk, but reveals internal hostnames |
-| `scan-*.json` | All of the above in JSON format | Same risks as above |
-| `migration-for-ai-review.md` | Software list, drive info | Low risk, but reveals your setup |
-
-### What to do
-
-1. **Before sharing** the `migration-output/` folder with anyone:
-   - Open `Restore-Configs.ps1` and check the `.gitconfig` section for tokens
-   - Review the environment variables section — remove any API keys or secrets
-   - Check the PowerShell profile section for sensitive values
-
-2. **Never commit** `migration-output/` to a public Git repo — add it to `.gitignore`
-
-3. **Delete the output folder** from the old laptop after you've confirmed the new one works
-
-4. **If using network transfer** (robocopy), use a trusted private network — data is unencrypted
-
-### The script itself is safe
-
-The main `Migrate-Laptop.ps1` script:
-- Never connects to the internet (the generated `Install-Software.ps1` uses `winget` which downloads from the internet — but that's a separate script you review and run yourself)
-- Never reads SSH private key contents (only file names)
-- Never reads browser passwords
-- Never deletes or modifies files on your old laptop
-- All verified by [automated security scans](.github/workflows/security-scan.yml) on every commit
-
-See [SECURITY.md](SECURITY.md) for the full security policy and self-audit commands.
-
-## Prerequisites
+## Requirements
 
 - **Windows 10 or 11**
-- **PowerShell 5.1+** (built-in) or PowerShell 7 (recommended)
+- **PowerShell 5.1+** (built-in) or PowerShell 7
 - **winget** (built into Windows 10/11 — used by Install-Software.ps1)
+- No admin rights needed for scanning. Admin needed only for hosts file restore.
 
-No admin rights needed for scanning. Admin needed only for hosts file restore.
-
-## Core Principles
-
-This tool follows a simple philosophy:
-
-| Do | Don't |
-|----|-------|
-| Copy **data** (source code, documents, photos) | Copy **system** (Windows, Program Files, drivers) |
-| **Reinstall** software fresh via winget | Copy installed programs between machines |
-| **Rebuild** dependencies (`npm install`, `pip install`) | Transfer `node_modules`, `.venv`, `target` |
-| **Review** every script before running | Auto-execute anything without approval |
-| **Read** from old laptop only | Delete or modify anything on old laptop |
-
-## Bulk Install — How Commenting Works
-
-The generated `Install-Software.ps1` has editable arrays at the top — one app per line:
-
-```powershell
-# ── DEVELOPER SOFTWARE ──
-$devApps = [ordered]@{
-    'Git'                         = 'Git.Git'
-    'Visual Studio Code'          = 'Microsoft.VisualStudioCode'
-    'Node.js 22'                  = 'OpenJS.NodeJS.22'
-    # 'Docker Desktop'            = 'Docker.DockerDesktop'      # ← add # to SKIP
-}
-
-# ── GENERAL SOFTWARE ──
-$generalApps = [ordered]@{
-    'Google Chrome'               = 'Google.Chrome.EXE'
-    'Microsoft Teams'             = 'Microsoft.Teams'
-    # 'Zoom Workplace'            = 'Zoom.Zoom.EXE'            # ← add # to SKIP
-}
-
-# ── OTHER SOFTWARE ──
-$otherApps = [ordered]@{
-    # 'Claude'                    = 'Anthropic.Claude'          # ← remove # to INSTALL
-    # 'Bruno (API client)'        = 'Bruno.Bruno'
-}
-```
-
-**To skip** an app: add `#` at the start of its line
-**To add** an app: remove `#` from its line
-
-Before running, each section shows the full list and asks for confirmation.
-
-## Mac Users
-
-This tool is **Windows-only** (PowerShell + winget + robocopy are Windows tools).
-
-However, the concepts and approach work on Mac too. The generated `Install-Software.ps1` includes Mac equivalents at the bottom:
-
-```bash
-# Install Homebrew:
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# Then install your tools:
-brew install git node python docker
-brew install --cask visual-studio-code google-chrome firefox
-```
+---
 
 ## FAQ
 
-**Q: Does it work on Mac?**
-A: No — it's Windows-only (PowerShell, winget, robocopy). But the generated `Install-Software.ps1` includes Homebrew equivalents at the bottom. The same philosophy applies: scan, plan, execute.
+<details><summary><strong>Is it safe? Will it delete anything?</strong></summary>
 
-**Q: Does it back up WiFi passwords, wallpaper, mouse settings, etc.?**
-A: Yes — it scans WiFi profiles, theme/dark mode, wallpaper path, mouse speed, cursor scheme, keyboard layout, sound scheme, display scaling, and region. Most of these sync automatically via your Microsoft account. The report tells you which ones sync vs need manual setup.
+The scan is **read-only** — it never deletes, modifies, or moves files on your old laptop. Generated scripts on the new laptop ask permission before every step. The only destructive option is **[7] Clean Up Old Laptop**, which requires typing two confirmation phrases.
+</details>
 
-**Q: How do I know what syncs automatically vs what I need to export?**
-A: The report includes a "Sync vs Export" table. Things like browser data, VS Code settings, WiFi, and theme sync via your accounts. Things like Git config, env vars, and SSH keys are captured by this tool. Things like display scaling and sound are hardware-dependent and flagged as manual.
+<details><summary><strong>Does it work on Mac or Linux?</strong></summary>
 
-**Q: What if the script gets interrupted mid-way (network drop, laptop sleep)?**
-A: Just re-run the same script. Each step is tracked in a `*-progress.json` file. Completed steps show `[SKIP]` and it picks up where you left off. This works for Install-Software, Transfer-Data, and Restore-Configs.
+No — it's Windows-only (PowerShell + winget + robocopy). For Mac, use the same approach manually: list your apps, use Homebrew to reinstall, and copy your data.
+</details>
 
-**Q: Can I re-run the scan if I forgot something?**
-A: Yes! Just run `.\Migrate-Laptop.ps1` again. It overwrites the previous scan for the same date.
+<details><summary><strong>What if winget doesn't recognize one of my apps?</strong></summary>
 
-**Q: Can I generate scripts without re-scanning?**
-A: Yes — run `.\Migrate-Laptop.ps1 -FromCache`. It uses the saved JSON from your last scan.
+Apps without a winget ID show up in the "Other" section of the report (commented out in the install script). Install those manually. You can search winget: `winget search "app name"`.
+</details>
 
-**Q: What if winget doesn't know one of my apps?**
-A: The report lists all software. Unrecognized apps appear in the "Other" section (commented out). Install those manually.
+<details><summary><strong>What if the script gets interrupted (network drop, laptop sleeps)?</strong></summary>
 
-**Q: Is it safe?**
-A: The script **only reads** from your old laptop. It never deletes, modifies, or moves files. Generated scripts on the new laptop ask permission before every action.
+Just re-run it. Each script tracks progress in a `*-progress.json` file. Completed steps are automatically skipped. Delete the progress file to start over.
+</details>
 
-**Q: Does it work with multiple drives?**
-A: Yes — it scans all drives (C, D, E, etc.) and includes custom folders from each in the transfer script.
+<details><summary><strong>Can I re-run the scan?</strong></summary>
 
-**Q: What about WSL (Windows Subsystem for Linux)?**
-A: WSL distros aren't migrated automatically. Export them manually: `wsl --export Ubuntu ubuntu-backup.tar` then import on the new machine: `wsl --import Ubuntu C:\WSL\ ubuntu-backup.tar`.
+Yes. Run `.\Migrate-Laptop.ps1` again and pick [3] or [4]. It overwrites the previous scan for the same date.
+</details>
 
-## 🐛 Reporting a Bug
+<details><summary><strong>Can I generate scripts without re-scanning?</strong></summary>
 
-Found an issue? Please [open a GitHub issue](https://github.com/gauravkhuraana/new-laptop-setup/issues/new) and include:
+Yes — run `.\Migrate-Laptop.ps1 -FromCache`. It uses the saved JSON from your last scan.
+</details>
 
-1. **What you were doing** — which script/step failed
-2. **Error message** — copy the exact error text
-3. **Log files** — attach the relevant files from your `migration-output/` folder:
-   - `migration-log-*.txt` (scan log)
-   - `transfer-log-*.txt` (if a transfer failed)
-   - `*-progress.json` (shows which steps completed before the failure)
-4. **Your environment** — Windows version (`winver`), PowerShell version (`$PSVersionTable.PSVersion`)
+<details><summary><strong>Does it work with multiple drives (D:, E:, etc)?</strong></summary>
 
-> **Before attaching logs:** scan the files for any API keys, tokens, or passwords in environment variables — redact them before sharing publicly.
+Yes. It scans all drives and includes custom folders from each in the transfer script.
+</details>
+
+<details><summary><strong>What about WSL (Windows Subsystem for Linux)?</strong></summary>
+
+WSL distros are detected and listed in the report but not migrated automatically. Export manually:
+```powershell
+wsl --export Ubuntu ubuntu-backup.tar          # On old laptop
+wsl --import Ubuntu C:\WSL\ ubuntu-backup.tar  # On new laptop
+```
+</details>
+
+<details><summary><strong>Do I need admin rights?</strong></summary>
+
+No — scanning works without admin. `Install-Software.ps1` works best with admin rights (some winget installs need it). Hosts file restore requires admin.
+</details>
+
+<details><summary><strong>WiFi profiles were already restored when I signed in — do I need the scan?</strong></summary>
+
+On corporate/domain-joined laptops, MDM-pushed WiFi profiles restore automatically. The scan is informational — it lists your saved networks so you can manually reconnect any personal ones (home, hotspot) that didn't auto-restore.
+</details>
+
+<details><summary><strong>How does it handle browser bookmarks and passwords?</strong></summary>
+
+It detects browser profiles but does NOT export passwords. Sign into Chrome/Edge/Firefox on your new laptop — bookmarks, passwords, and extensions sync automatically via your browser account.
+</details>
+
+<details><summary><strong>What about VS Code settings and extensions?</strong></summary>
+
+The report lists all your extensions with install commands. But the easiest way is **Settings Sync**: press `Ctrl+Shift+P` → "Settings Sync: Turn On" → sign in with GitHub or Microsoft. Extensions + settings restore automatically.
+</details>
+
+<details><summary><strong>What about Docker?</strong></summary>
+
+Docker images and volumes are listed in the report. Images can be re-pulled (`docker pull`). Volumes with important data should be exported manually before wiping the old laptop: `docker run --rm -v myvolume:/data -v $(pwd):/backup busybox tar czf /backup/myvolume.tar.gz /data`.
+</details>
+
+<details><summary><strong>What about Git repos / source code?</strong></summary>
+
+Your project folders are transferred via `Transfer-Data.ps1`. The `.git` folder is excluded by default (large, easily re-cloned). After transfer, just `git clone` your repos again or remove `.git` from the exclusion list in the script if you want to keep local history.
+</details>
+
+<details><summary><strong>How do I skip an app in Install-Software.ps1?</strong></summary>
+
+Open the file in any editor. Each app is one line. Add `#` at the start to skip it:
+```powershell
+    # 'Docker Desktop'            = 'Docker.DockerDesktop'      # ← skipped
+```
+</details>
+
+<details><summary><strong>What's the "Clean Up Old Laptop" option?</strong></summary>
+
+Option [7] in the main menu. It deletes personal data (Desktop, Documents, browser profiles, WiFi passwords, SSH keys, etc.) from your old laptop. Requires typing `I HAVE VERIFIED` and `DELETE MY DATA`. Each step also asks individually. It does NOT touch Windows, installed programs, or your domain login.
+</details>
+
+<details><summary><strong>Can I use this in a corporate/enterprise environment?</strong></summary>
+
+Yes. It's a single local PowerShell script with zero dependencies — no internet access, no telemetry, no external services. IT teams can review the source code (single file, ~4300 lines). See [SECURITY.md](SECURITY.md) for the security policy.
+</details>
 
 ---
 
-## ⚠️ Disclaimer
+## Reporting a Bug
 
-> **Use at your own risk.** While every precaution has been taken to make this tool safe and reliable, I am not responsible for any data loss, corruption, or unintended consequences that may result from using this tool.
->
-> Always **back up your data independently** before running any migration. Verify your data has transferred successfully before wiping or repurposing your old laptop.
+Found an issue? [Open a GitHub issue](https://github.com/gauravkhuraana/new-laptop-setup/issues/new) with the info below.
+
+### What to include
+
+**1. What happened**
+- Which step/option you chose
+- What you expected vs what actually happened
+
+**2. Error screenshot**
+- Screenshot of the PowerShell window showing the error (red text)
+
+**3. PowerShell version** — run this and paste the output:
+```powershell
+$PSVersionTable | Format-List PSVersion, PSEdition, OS
+```
+
+**4. Windows version** — run this and paste the output:
+```powershell
+[System.Environment]::OSVersion.Version.ToString() + " " + (Get-CimInstance Win32_OperatingSystem).Caption
+```
+
+**5. Log files** — attach these from your `migration-output/` folder:
+
+| File | When to attach |
+|------|---------------|
+| `migration-log-*.txt` | Always — this is the main scan log |
+| `transfer-log.txt` | If transfer failed |
+| `*-progress.json` | If a script stopped mid-way |
+| `scan-*.json` | If the report looks wrong |
+
+### Before sharing logs
+
+Scan the log files for personal info. The logs may contain:
+- Folder names and file paths
+- Software names from your machine
+- Environment variable names (not values)
+
+Redact anything you're not comfortable sharing publicly. Or email them privately — see contact below.
+
+### Quick debug command
+
+Run this to collect all debug info into one file you can attach:
+
+```powershell
+$debugFile = "migration-debug-$(Get-Date -Format 'yyyy-MM-dd-HHmmss').txt"
+"=== PowerShell ===" | Out-File $debugFile
+$PSVersionTable | Format-List | Out-File $debugFile -Append
+"=== Windows ===" | Out-File $debugFile -Append
+Get-CimInstance Win32_OperatingSystem | Format-List Caption, Version, BuildNumber | Out-File $debugFile -Append
+"=== Winget ===" | Out-File $debugFile -Append
+try { winget --version 2>&1 | Out-File $debugFile -Append } catch { "winget not found" | Out-File $debugFile -Append }
+"=== Execution Policy ===" | Out-File $debugFile -Append
+Get-ExecutionPolicy -List | Out-File $debugFile -Append
+Write-Host "Debug info saved to: $debugFile" -ForegroundColor Green
+```
+
+Attach the generated file to your issue.
 
 ---
 
-Created by [gauravkhurana.com](https://gauravkhurana.com) for the community. **#SharingIsCaring**
+## Disclaimer
+
+> **Use at your own risk.** While every precaution has been taken to make this tool safe and reliable, I am not responsible for any data loss, corruption, or unintended consequences. Always **back up your data independently** before running any migration. Verify everything works before wiping your old laptop.
+
+---
+
+Created by [gauravkhurana.com](https://gauravkhurana.com) for the community.
+Like this? [Star the repo](https://github.com/gauravkhuraana/new-laptop-setup) | [Connect](https://gauravkhurana.com/connect) | **#SharingIsCaring**
