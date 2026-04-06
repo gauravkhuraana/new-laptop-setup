@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Interactive wizard for migrating from one Windows laptop to another.
     Scans your old laptop, generates reviewable scripts, and guides you through setup.
@@ -7,11 +7,11 @@
     Single-file, zero-dependency PowerShell script. Works on Windows 10/11 with PowerShell 5.1+.
 
     What it does:
-      1. SCAN  — Discovers drives, installed software, configs, and user data folders
-      2. PLAN  — Generates reviewable scripts: Install-Software.ps1, Transfer-Data.ps1
-      3. EXECUTE — Guides you through running the generated scripts on the new laptop
+      1. SCAN  -- Discovers drives, installed software, configs, and user data folders
+      2. PLAN  -- Generates reviewable scripts: Install-Software.ps1, Transfer-Data.ps1, Restore-Configs.ps1
+      3. EXECUTE -- Guides you through running the generated scripts on the new laptop
 
-    You stay in full control — every script is reviewed before running.
+    You stay in full control -- every script is reviewed before running.
     Nothing is deleted or modified on the old laptop.
 
     Supports transfer via: Network (robocopy), USB/External Drive, or Cloud (OneDrive).
@@ -20,7 +20,7 @@
     Where scan results and generated scripts are saved. Default: ./migration-output
 
 .PARAMETER ScanOnly
-    Run Phase 1 (scan) only — no script generation or execution.
+    Run Phase 1 (scan) only -- no script generation or execution.
 
 .PARAMETER FromCache
     Skip scanning and use a previous scan result (JSON file) to generate scripts.
@@ -29,7 +29,7 @@
     Path to a specific scan cache JSON file. Used with -FromCache.
 
 .EXAMPLE
-    # Just run it — interactive wizard guides you:
+    # Just run it -- interactive wizard guides you:
     .\Migrate-Laptop.ps1
 
 .EXAMPLE
@@ -55,20 +55,20 @@ $ErrorActionPreference = "Stop"
 $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
 if (-not $OutputDir) { $OutputDir = Join-Path $scriptDir "migration-output" }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # SECTION 0: BANNER & INTERACTIVE MENU
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 function Show-Banner {
     Write-Host ""
-    Write-Host "  ╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-    Write-Host "  ║           Migrate-Laptop — Laptop Migration Wizard          ║" -ForegroundColor Cyan
-    Write-Host "  ║                                                              ║" -ForegroundColor Cyan
-    Write-Host "  ║  Scans your old laptop, generates install & transfer scripts,║" -ForegroundColor Cyan
-    Write-Host "  ║  and guides you through setting up your new machine.         ║" -ForegroundColor Cyan
-    Write-Host "  ║                                                              ║" -ForegroundColor Cyan
-    Write-Host "  ║  Safe by design — reads only, never deletes or modifies.     ║" -ForegroundColor Cyan
-    Write-Host "  ╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+    Write-Host "  +==============================================================+" -ForegroundColor Cyan
+    Write-Host "  |           Migrate-Laptop -- Laptop Migration Wizard          |" -ForegroundColor Cyan
+    Write-Host "  |                                                              |" -ForegroundColor Cyan
+    Write-Host "  |  Scans your old laptop, generates install & transfer scripts,|" -ForegroundColor Cyan
+    Write-Host "  |  and guides you through setting up your new machine.         |" -ForegroundColor Cyan
+    Write-Host "  |                                                              |" -ForegroundColor Cyan
+    Write-Host "  |  Safe by design -- reads only, never deletes or modifies.     |" -ForegroundColor Cyan
+    Write-Host "  +==============================================================+" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "  Created by gauravkhurana.com for the community" -ForegroundColor DarkCyan
     Write-Host "  #SharingIsCaring" -ForegroundColor DarkCyan
@@ -91,40 +91,40 @@ if ($FromCache) { $script:ChosenMode = 'generate' }
 # Show interactive menu if no mode set via params
 if ($null -eq $script:ChosenMode) {
     Show-Banner
-    Write-Host "  ┌──────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
-    Write-Host "  │  Welcome! Pick where you'd like to start:                │" -ForegroundColor Cyan
-    Write-Host "  ├──────────────────────────────────────────────────────────┤" -ForegroundColor Cyan
-    Write-Host "  │                                                          │" -ForegroundColor Cyan
-    Write-Host "  │  UNDERSTAND FIRST                                        │" -ForegroundColor DarkGray
-    Write-Host "  │  ─────────────────                                       │" -ForegroundColor DarkGray
-    Write-Host "  │  [1] What is this tool? (start here if first time)       │" -ForegroundColor White
-    Write-Host "  │      What it can do, what it can't, and how it works.    │" -ForegroundColor DarkGray
-    Write-Host "  │                                                          │" -ForegroundColor Cyan
-    Write-Host "  │  [2] I want to do it manually (no automation)            │" -ForegroundColor White
-    Write-Host "  │      Printable tips, do's & don'ts, app-specific advice. │" -ForegroundColor DarkGray
-    Write-Host "  │      For people who prefer doing things themselves.       │" -ForegroundColor DarkGray
-    Write-Host "  │                                                          │" -ForegroundColor Cyan
-    Write-Host "  │  USE THE TOOL                                            │" -ForegroundColor DarkGray
-    Write-Host "  │  ────────────                                            │" -ForegroundColor DarkGray
-    Write-Host "  │  [3] Scan & Prepare (run on OLD laptop)                  │" -ForegroundColor Green
-    Write-Host "  │      Scans everything, generates reports & scripts.      │" -ForegroundColor DarkGray
-    Write-Host "  │      SAFE: Read-only. Nothing installed, copied, deleted.│" -ForegroundColor DarkGray
-    Write-Host "  │                                                          │" -ForegroundColor Cyan
-    Write-Host "  │  [4] Scan Only (report only, no scripts)                 │" -ForegroundColor Yellow
-    Write-Host "  │      Just the report. Generate scripts later if needed.  │" -ForegroundColor DarkGray
-    Write-Host "  │                                                          │" -ForegroundColor Cyan
-    Write-Host "  │  [5] Generate Scripts from Previous Scan                 │" -ForegroundColor Yellow
-    Write-Host "  │      Uses saved scan data. No re-scanning needed.        │" -ForegroundColor DarkGray
-    Write-Host "  │                                                          │" -ForegroundColor Cyan
-    Write-Host "  │  AFTER MIGRATION                                         │" -ForegroundColor DarkGray
-    Write-Host "  │  ───────────────                                         │" -ForegroundColor DarkGray
-    Write-Host "  │  [6] Post-Migration Checklist (run on NEW laptop)        │" -ForegroundColor Magenta
-    Write-Host "  │      Verify everything works on your new machine.        │" -ForegroundColor DarkGray
-    Write-Host "  │                                                          │" -ForegroundColor Cyan
-    Write-Host "  │  [7] Clean Up Old Laptop (DESTRUCTIVE — last step!)      │" -ForegroundColor Red
-    Write-Host "  │      Wipe personal data. Double confirmation required.   │" -ForegroundColor DarkGray
-    Write-Host "  │                                                          │" -ForegroundColor Cyan
-    Write-Host "  └──────────────────────────────────────────────────────────┘" -ForegroundColor Cyan
+    Write-Host "  +----------------------------------------------------------+" -ForegroundColor Cyan
+    Write-Host "  |  Welcome! Pick where you'd like to start:                |" -ForegroundColor Cyan
+    Write-Host "  +----------------------------------------------------------+" -ForegroundColor Cyan
+    Write-Host "  |                                                          |" -ForegroundColor Cyan
+    Write-Host "  |  UNDERSTAND FIRST                                        |" -ForegroundColor DarkGray
+    Write-Host "  |  -----------------                                       |" -ForegroundColor DarkGray
+    Write-Host "  |  [1] What is this tool? (start here if first time)       |" -ForegroundColor White
+    Write-Host "  |      What it can do, what it can't, and how it works.    |" -ForegroundColor DarkGray
+    Write-Host "  |                                                          |" -ForegroundColor Cyan
+    Write-Host "  |  [2] I want to do it manually (no automation)            |" -ForegroundColor White
+    Write-Host "  |      Printable tips, do's & don'ts, app-specific advice. |" -ForegroundColor DarkGray
+    Write-Host "  |      For people who prefer doing things themselves.       |" -ForegroundColor DarkGray
+    Write-Host "  |                                                          |" -ForegroundColor Cyan
+    Write-Host "  |  USE THE TOOL                                            |" -ForegroundColor DarkGray
+    Write-Host "  |  ------------                                            |" -ForegroundColor DarkGray
+    Write-Host "  |  [3] Scan & Prepare (run on OLD laptop)                  |" -ForegroundColor Green
+    Write-Host "  |      Scans everything, generates reports & scripts.      |" -ForegroundColor DarkGray
+    Write-Host "  |      SAFE: Read-only. Nothing installed, copied, deleted.|" -ForegroundColor DarkGray
+    Write-Host "  |                                                          |" -ForegroundColor Cyan
+    Write-Host "  |  [4] Scan Only (report only, no scripts)                 |" -ForegroundColor Yellow
+    Write-Host "  |      Just the report. Generate scripts later if needed.  |" -ForegroundColor DarkGray
+    Write-Host "  |                                                          |" -ForegroundColor Cyan
+    Write-Host "  |  [5] Generate Scripts from Previous Scan                 |" -ForegroundColor Yellow
+    Write-Host "  |      Uses saved scan data. No re-scanning needed.        |" -ForegroundColor DarkGray
+    Write-Host "  |                                                          |" -ForegroundColor Cyan
+    Write-Host "  |  AFTER MIGRATION                                         |" -ForegroundColor DarkGray
+    Write-Host "  |  ---------------                                         |" -ForegroundColor DarkGray
+    Write-Host "  |  [6] Post-Migration Checklist (run on NEW laptop)        |" -ForegroundColor Magenta
+    Write-Host "  |      Verify everything works on your new machine.        |" -ForegroundColor DarkGray
+    Write-Host "  |                                                          |" -ForegroundColor Cyan
+    Write-Host "  |  [7] Clean Up Old Laptop (DESTRUCTIVE -- last step!)      |" -ForegroundColor Red
+    Write-Host "  |      Wipe personal data. Double confirmation required.   |" -ForegroundColor DarkGray
+    Write-Host "  |                                                          |" -ForegroundColor Cyan
+    Write-Host "  +----------------------------------------------------------+" -ForegroundColor Cyan
     Write-Host ""
     $choice = Read-Host "  Enter choice [1-7]"
     switch ($choice) {
@@ -133,47 +133,39 @@ if ($null -eq $script:ChosenMode) {
         }
         '2' {
             $script:ChosenMode = 'tips'
-            Write-Host "  → Manual migration tips selected." -ForegroundColor White
+            Write-Host "  -> Manual migration tips selected." -ForegroundColor White
         }
         '3' {
             $script:ChosenMode = 'full'
-            Write-Host ""
-            Write-Host "  ┌─ Quick Pre-Flight Check ──────────────────────────────────┐" -ForegroundColor Yellow
-            Write-Host "  │ Before scanning, verify browser sync is ON (old laptop):  │" -ForegroundColor Yellow
-            Write-Host "  │  Edge  : edge://settings/profiles/sync                    │" -ForegroundColor White
-            Write-Host "  │  Chrome: chrome://settings/syncSetup                      │" -ForegroundColor White
-            Write-Host "  │ History, bookmarks & passwords won't transfer without sync.│" -ForegroundColor DarkGray
-            Write-Host "  └───────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
-            Write-Host ""
-            Write-Host "  → Scan & Prepare selected. Will scan this laptop and generate scripts." -ForegroundColor Green
+            Write-Host "  -> Scan & Prepare selected. Will scan this laptop and generate scripts." -ForegroundColor Green
             Write-Host "    Nothing will be installed, copied, or deleted." -ForegroundColor DarkGray
         }
         '4' {
             $script:ChosenMode = 'scan'
-            Write-Host "  → Scan-only selected. Will produce a report for review." -ForegroundColor Yellow
+            Write-Host "  -> Scan-only selected. Will produce a report for review." -ForegroundColor Yellow
         }
         '5' {
             $script:ChosenMode = 'generate'
-            Write-Host "  → Generate from cache selected." -ForegroundColor Yellow
+            Write-Host "  -> Generate from cache selected." -ForegroundColor Yellow
         }
         '6' {
             $script:ChosenMode = 'checklist'
-            Write-Host "  → Post-migration checklist selected." -ForegroundColor Magenta
+            Write-Host "  -> Post-migration checklist selected." -ForegroundColor Magenta
         }
         '7' {
             $script:ChosenMode = 'cleanup'
             Write-Host ""
-            Write-Host "  ████████████████████████████████████████████████████████████" -ForegroundColor Red
-            Write-Host "  ██                                                      ██" -ForegroundColor Red
-            Write-Host "  ██   WARNING: THIS WILL DELETE YOUR PERSONAL DATA       ██" -ForegroundColor Red
-            Write-Host "  ██   THIS ACTION CANNOT BE UNDONE                       ██" -ForegroundColor Red
-            Write-Host "  ██                                                      ██" -ForegroundColor Red
-            Write-Host "  ████████████████████████████████████████████████████████████" -ForegroundColor Red
+            Write-Host "  ############################################################" -ForegroundColor Red
+            Write-Host "  ##                                                      ##" -ForegroundColor Red
+            Write-Host "  ##   WARNING: THIS WILL DELETE YOUR PERSONAL DATA       ##" -ForegroundColor Red
+            Write-Host "  ##   THIS ACTION CANNOT BE UNDONE                       ##" -ForegroundColor Red
+            Write-Host "  ##                                                      ##" -ForegroundColor Red
+            Write-Host "  ############################################################" -ForegroundColor Red
             Write-Host ""
-            Write-Host "  → Old laptop cleanup selected." -ForegroundColor Red
+            Write-Host "  -> Old laptop cleanup selected." -ForegroundColor Red
         }
         default {
-            Write-Host "  Invalid choice. Starting with option [1] — What is this tool?" -ForegroundColor Yellow
+            Write-Host "  Invalid choice. Starting with option [1] -- What is this tool?" -ForegroundColor Yellow
             $script:ChosenMode = 'about'
         }
     }
@@ -183,9 +175,9 @@ if ($null -eq $script:ChosenMode) {
 # Create output directory
 if (-not (Test-Path $OutputDir)) { New-Item -Path $OutputDir -ItemType Directory -Force | Out-Null }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # SECTION 1: LOGGING
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 $script:LogFilePath = Join-Path $OutputDir "migration-log-$($script:RunTimestamp).txt"
 
@@ -205,8 +197,23 @@ function Write-Log {
 function Write-Step {
     param([string]$Title)
     Write-Host ""
-    Write-Host "  ── $Title ──" -ForegroundColor Cyan
+    Write-Host "  -- $Title --" -ForegroundColor Cyan
     Write-Host ""
+}
+
+function Get-HtmlEncoded {
+    param([string]$Text)
+    if (-not $Text) { return '' }
+    # PS 7+ doesn't have System.Web -- use System.Net.WebUtility (available everywhere)
+    # System.Security.SecurityElement.Escape also works but doesn't handle all chars
+    if ([type]::GetType('System.Net.WebUtility')) {
+        return [System.Net.WebUtility]::HtmlEncode($Text)
+    }
+    if ([type]::GetType('System.Web.HttpUtility')) {
+        return [System.Web.HttpUtility]::HtmlEncode($Text)
+    }
+    # Fallback: manual escape
+    return $Text.Replace('&','&amp;').Replace('<','&lt;').Replace('>','&gt;').Replace('"','&quot;')
 }
 
 function Format-Size {
@@ -217,24 +224,21 @@ function Format-Size {
     return "$Bytes B"
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # SECTION 2: KNOWN SOFTWARE DATABASE
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
-# Developer essentials — name patterns (regex) mapped to winget IDs
+# Developer essentials -- name patterns (regex) mapped to winget IDs
 $script:DevEssentials = @(
     @{ Name = "Visual Studio Code";    Pattern = "Visual Studio Code|VS Code|VSCode"; WingetId = "Microsoft.VisualStudioCode";    Category = "Editor" }
     @{ Name = "Git";                   Pattern = "^Git$|Git for Windows";              WingetId = "Git.Git";                       Category = "Version Control" }
     @{ Name = "Node.js";              Pattern = "Node\.js|NodeJS";                    WingetId = "OpenJS.NodeJS.LTS";             Category = "Runtime" }
     @{ Name = "Python";               Pattern = "^Python\s*3|Python 3\.\d";          WingetId = "Python.Python.3.12";            Category = "Runtime" }
-    @{ Name = "Java (JDK)";           Pattern = "Java.*Development Kit|OpenJDK|JDK|Temurin|Corretto|Java \d+ Update"; WingetId = "EclipseAdoptium.Temurin.21.JDK"; Category = "Runtime" }
+    @{ Name = "Java (JDK)";           Pattern = "Java.*Development Kit|OpenJDK|JDK|Temurin|Corretto"; WingetId = "EclipseAdoptium.Temurin.21.JDK"; Category = "Runtime" }
     @{ Name = "Docker Desktop";       Pattern = "Docker Desktop";                     WingetId = "Docker.DockerDesktop";           Category = "Containers" }
     @{ Name = "Postman";              Pattern = "Postman";                            WingetId = "Postman.Postman";                Category = "API Tools" }
-    @{ Name = "Bruno";                Pattern = "^Bruno";                             WingetId = "Bruno.Bruno";                    Category = "API Tools" }
-    @{ Name = "Hoppscotch";           Pattern = "Hoppscotch";                         WingetId = "hoppscotch.Hoppscotch";          Category = "API Tools" }
     @{ Name = "Windows Terminal";     Pattern = "Windows Terminal";                   WingetId = "Microsoft.WindowsTerminal";      Category = "Terminal" }
     @{ Name = "PowerShell 7";        Pattern = "PowerShell [7-9]|PowerShell-7|pwsh"; WingetId = "Microsoft.PowerShell";           Category = "Terminal" }
-    @{ Name = "Oh My Posh";           Pattern = "Oh My Posh";                         WingetId = "JanDeDobbeleer.OhMyPosh";        Category = "Terminal" }
     @{ Name = ".NET SDK";             Pattern = "\.NET SDK|dotnet-sdk";               WingetId = "Microsoft.DotNet.SDK.8";         Category = "Runtime" }
     @{ Name = "Visual Studio";        Pattern = "Visual Studio (Community|Professional|Enterprise) 20"; WingetId = "Microsoft.VisualStudio.2022.Community"; Category = "IDE" }
     @{ Name = "IntelliJ IDEA";        Pattern = "IntelliJ IDEA";                      WingetId = "JetBrains.IntelliJIDEA.Community"; Category = "IDE" }
@@ -246,7 +250,6 @@ $script:DevEssentials = @(
     @{ Name = "AWS CLI";              Pattern = "AWS CLI|AWSCLI";                     WingetId = "Amazon.AWSCLI";                   Category = "Cloud" }
     @{ Name = "WSL";                  Pattern = "Windows Subsystem for Linux";        WingetId = "Microsoft.WSL";                   Category = "Runtime" }
     @{ Name = "GitHub CLI";           Pattern = "GitHub CLI|gh\.exe";                 WingetId = "GitHub.cli";                      Category = "Version Control" }
-    @{ Name = "GitHub Copilot CLI";   Pattern = "^Copilot$|GitHub.Copilot";           WingetId = "GitHub.Copilot";                  Category = "AI" }
     @{ Name = "Notepad++";            Pattern = "Notepad\+\+";                        WingetId = "Notepad++.Notepad++";             Category = "Editor" }
     @{ Name = "Sublime Text";         Pattern = "Sublime Text";                       WingetId = "SublimeHQ.SublimeText.4";         Category = "Editor" }
     @{ Name = "DBeaver";              Pattern = "DBeaver";                            WingetId = "dbeaver.dbeaver";                 Category = "Database" }
@@ -258,11 +261,6 @@ $script:DevEssentials = @(
     @{ Name = "WinSCP";               Pattern = "WinSCP";                            WingetId = "WinSCP.WinSCP";                   Category = "FTP" }
     @{ Name = "Fiddler";              Pattern = "Fiddler";                            WingetId = "Telerik.Fiddler.Classic";         Category = "Network" }
     @{ Name = "Wireshark";            Pattern = "Wireshark";                          WingetId = "WiresharkFoundation.Wireshark";   Category = "Network" }
-    # AI / LLM tools
-    @{ Name = "Claude";               Pattern = "^Claude$|Anthropic\.Claude";         WingetId = "Anthropic.Claude";                Category = "AI" }
-    @{ Name = "GPT4All";              Pattern = "GPT4All";                            WingetId = "nomic.gpt4all";                   Category = "AI" }
-    @{ Name = "Foundry Local";        Pattern = "Foundry Local";                      WingetId = "Microsoft.FoundryLocal";          Category = "AI" }
-    @{ Name = "Comet (Perplexity)";   Pattern = "^Comet$|Perplexity\.Comet";          WingetId = "Perplexity.Comet";                Category = "AI" }
 )
 
 # General essentials
@@ -297,18 +295,33 @@ $script:GeneralEssentials = @(
 
 # Directories to exclude when transferring data
 $script:ExcludeDirs = @(
+    # Package managers & dependencies (rebuilt via npm install, pip install, etc.)
     'node_modules', '.venv', 'venv', 'env', '__pycache__', '.pytest_cache',
+    'packages', '.nuget',
+    # Version control (re-cloned via git clone)
+    '.git', '.svn', '.hg',
+    # Build output & caches (rebuilt on compile)
     '.cache', '.tox', 'dist', 'build', 'target', 'bin', 'obj',
     'coverage', '.coverage', '.nyc_output', '.next', '.nuxt',
-    '.gradle', '.m2', '.ivy2',
+    '.gradle', '.m2', '.ivy2', '.terraform',
+    # IDE/editor caches (regenerated on project open)
+    '.vs', '.idea', '.sonarlint', '.angular', '.parcel-cache',
+    '.sass-cache', '.eslintcache',
+    # Test output
+    'TestResults', 'test-results',
+    # System junk
     '$RECYCLE.BIN', 'System Volume Information',
-    '.tmp', '.temp', 'Thumbs.db'
+    '.tmp', '.temp', 'Thumbs.db',
+    # App caches (regenerated on sign-in/launch)
+    'tdata', 'Cache', 'GPUCache', 'Code Cache', 'CachedData', 'CachedExtensions',
+    'Crashpad', 'blob_storage', 'Session Storage', 'Local Storage',
+    'Service Worker', 'IndexedDB', 'DawnCache', 'GrShaderCache', 'ShaderCache'
 )
 
 $script:ExcludeFiles = @(
     '*.log', '*.tmp', '*.temp', '*.bak', '*.swp', '*.swo',
     'Thumbs.db', 'desktop.ini', '*.pyc', '*.pyo', '*.class',
-    '*.o', '*.obj', '*.exe', '*.dll', '*.so', '*.dylib'
+    '*.o', '*.obj'
 )
 
 # System folders to never scan/copy
@@ -318,38 +331,70 @@ $script:SystemFolders = @(
     'System Volume Information', 'PerfLogs'
 )
 
-# App-specific config migration tips — shown when these apps are detected
+# Software install folders on C: -- reinstalled via winget, not copied
+# The scanner will still find these but mark them so users know
+$script:InstallFolderPatterns = @(
+    '^Python\d',            # C:\Python313, C:\Python312, etc.
+    '^Ruby\d',              # C:\Ruby32, etc.
+    '^Go$',                 # C:\Go
+    '^Perl\d',              # C:\Perl64, etc.
+    '^PHP$',                # C:\PHP
+    '^Rust$',               # C:\Rust
+    '^CMake$',              # C:\CMake
+    '^Gradle$',             # C:\Gradle
+    '^Maven$',              # C:\Maven
+    '^Android$',            # C:\Android (SDK)
+    '^HashiCorp$',          # C:\HashiCorp (Terraform etc.)
+    '^officeclient\.',      # C:\officeclient.microsoft.com (Office cache)
+    '^intel$',              # C:\intel
+    '^AMD$',                # C:\AMD
+    '^NVIDIA$',             # C:\NVIDIA (driver installer)
+    '^Dell$',               # C:\Dell
+    '^HP$',                 # C:\HP
+    '^Lenovo$',             # C:\Lenovo
+    '^drivers$',            # C:\drivers
+    '^inetpub$',            # C:\inetpub (IIS)
+    '^msys\d',              # C:\msys64 (MSYS2/MinGW)
+    '^MinGW',               # C:\MinGW
+    '^Cygwin',              # C:\Cygwin64
+    '^swapfile\.',          # C:\swapfile.sys parent
+    '^pagefile\.',          # pagefile
+    '^hiberfil\.',          # hibernate file
+    '^Cache$'               # C:\Cache (generic app cache)
+)
+
+# App-specific config migration tips -- shown when these apps are detected
 # Key = regex pattern to match against installed app names
 $script:AppConfigTips = @(
-    @{ Pattern = "ShareX";              Tip = "Export: ShareX → Application Settings → Export → saves .sxie file. Import on new laptop." }
+    @{ Pattern = "ShareX";              Tip = "Export: ShareX -> Application Settings -> Export -> saves .sxie file. Import on new laptop." }
     @{ Pattern = "Sublime Text";        Tip = "Copy: %APPDATA%\Sublime Text\Packages\User\ (settings, keybindings, installed packages list)" }
     @{ Pattern = "Notepad\+\+";         Tip = "Copy: %APPDATA%\Notepad++\ (config.xml, plugins, themes, session.xml)" }
     @{ Pattern = "OBS Studio";          Tip = "Copy: %APPDATA%\obs-studio\ (scenes, profiles, plugin configs)" }
-    @{ Pattern = "Postman";             Tip = "Sign in with Postman account — collections and environments sync automatically" }
-    @{ Pattern = "DBeaver";             Tip = "Export: File → Export → export connections. Copy: %APPDATA%\DBeaverData\ for full config" }
-    @{ Pattern = "HeidiSQL";            Tip = "Export: File → Export Settings. Or copy registry key HKCU\Software\HeidiSQL" }
+    @{ Pattern = "Postman";             Tip = "Sign in with Postman account -- collections and environments sync automatically" }
+    @{ Pattern = "DBeaver";             Tip = "Export: File -> Export -> export connections. Copy: %APPDATA%\DBeaverData\ for full config" }
+    @{ Pattern = "HeidiSQL";            Tip = "Export: File -> Export Settings. Or copy registry key HKCU\Software\HeidiSQL" }
     @{ Pattern = "FileZilla";           Tip = "Copy: %APPDATA%\FileZilla\ (sitemanager.xml = saved servers, filezilla.xml = settings)" }
-    @{ Pattern = "WinSCP";              Tip = "Export: Options → Preferences → Storage → Export to INI file" }
-    @{ Pattern = "Docker Desktop";      Tip = "Images don't transfer — pull again. docker-compose.yml files are in your projects. Export volumes manually." }
+    @{ Pattern = "WinSCP";              Tip = "Export: Options -> Preferences -> Storage -> Export to INI file" }
+    @{ Pattern = "Docker Desktop";      Tip = "Images don't transfer -- pull again. docker-compose.yml files are in your projects. Export volumes manually." }
     @{ Pattern = "Fiddler";             Tip = "Copy: %USERPROFILE%\Documents\Fiddler2\ (custom rules, scripts)" }
-    @{ Pattern = "PowerToys";           Tip = "Export: PowerToys Settings → General → Backup & Restore → Create Backup" }
+    @{ Pattern = "PowerToys";           Tip = "Export: PowerToys Settings -> General -> Backup & Restore -> Create Backup" }
     @{ Pattern = "KeePass";             Tip = "Copy your .kdbx database file via USB. Never over network unencrypted." }
-    @{ Pattern = "Bitwarden";           Tip = "Sign in on new laptop — vault syncs automatically. Export not needed." }
-    @{ Pattern = "1Password";           Tip = "Sign in on new laptop — vault syncs automatically. Export not needed." }
+    @{ Pattern = "Bitwarden";           Tip = "Sign in on new laptop -- vault syncs automatically. Export not needed." }
+    @{ Pattern = "1Password";           Tip = "Sign in on new laptop -- vault syncs automatically. Export not needed." }
     @{ Pattern = "Obsidian";            Tip = "Copy your vault folder (wherever your .md files are). Plugins are inside .obsidian/ in the vault." }
-    @{ Pattern = "IntelliJ IDEA";       Tip = "File → Manage IDE Settings → Export Settings. Or enable Settings Sync (JetBrains account)." }
-    @{ Pattern = "Visual Studio (Community|Professional|Enterprise)"; Tip = "Sign in with Microsoft account — settings sync. Extensions: Extensions → Manage → export .vsext file" }
-    @{ Pattern = "pgAdmin";             Tip = "Export: Servers → right-click → Export Servers. Saves server list as JSON." }
-    @{ Pattern = "MongoDB Compass";     Tip = "Export: Favorites/saved connections → export as JSON from connection list" }
-    @{ Pattern = "Spotify";             Tip = "Sign in — playlists and library sync automatically. No export needed." }
-    @{ Pattern = "Zoom";                Tip = "Sign in — settings are cloud-synced. Local recordings: copy from Documents\Zoom\" }
-    @{ Pattern = "Slack";               Tip = "Sign in to each workspace — history loads from cloud. No export needed." }
-    @{ Pattern = "Discord";             Tip = "Sign in — servers and settings sync. No export needed." }
+    @{ Pattern = "IntelliJ IDEA";       Tip = "File -> Manage IDE Settings -> Export Settings. Or enable Settings Sync (JetBrains account)." }
+    @{ Pattern = "Visual Studio (Community|Professional|Enterprise)"; Tip = "Sign in with Microsoft account -- settings sync. Extensions: Extensions -> Manage -> export .vsext file" }
+    @{ Pattern = "pgAdmin";             Tip = "Export: Servers -> right-click -> Export Servers. Saves server list as JSON." }
+    @{ Pattern = "MongoDB Compass";     Tip = "Export: Favorites/saved connections -> export as JSON from connection list" }
+    @{ Pattern = "Spotify";             Tip = "Sign in -- playlists and library sync automatically. No export needed." }
+    @{ Pattern = "Zoom";                Tip = "Sign in -- settings are cloud-synced. Local recordings: copy from Documents\Zoom\" }
+    @{ Pattern = "Slack";               Tip = "Sign in to each workspace -- history loads from cloud. No export needed." }
+    @{ Pattern = "Discord";             Tip = "Sign in -- servers and settings sync. No export needed." }
 )
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # SECTION 3: SCAN FUNCTIONS (Phase 1)
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 function Get-DriveInfo {
     Write-Step "Scanning Drives"
@@ -363,7 +408,7 @@ function Get-DriveInfo {
             TotalGB   = [math]::Round(($_.Used + $_.Free) / 1GB, 2)
             UsedPct   = if (($_.Used + $_.Free) -gt 0) { [math]::Round(($_.Used / ($_.Used + $_.Free)) * 100, 1) } else { 0 }
         }
-        Write-Log "Drive $($d.Name): — $(Format-Size $_.Used) used / $(Format-Size $_.Free) free ($(Format-Size ($_.Used + $_.Free)) total)" -Level Info
+        Write-Log "Drive $($d.Name): -- $(Format-Size $_.Used) used / $(Format-Size $_.Free) free ($(Format-Size ($_.Used + $_.Free)) total)" -Level Info
         $drives += $d
     }
     return $drives
@@ -385,7 +430,7 @@ function Get-UserProfileFolders {
     $results = @()
     foreach ($folder in $knownFolders) {
         if (-not $folder.Path -or -not (Test-Path $folder.Path)) {
-            Write-Log "$($folder.Name): not found — skipping" -Level Warn
+            Write-Log "$($folder.Name): not found -- skipping" -Level Warn
             continue
         }
         try {
@@ -404,13 +449,13 @@ function Get-UserProfileFolders {
                 IsOneDrive = $isOneDrive
             }
             if ($isOneDrive) {
-                Write-Log "$($folder.Name): $fileCount files, $(Format-Size $totalSize) — $($folder.Path) [ONEDRIVE SYNCED]" -Level Info
+                Write-Log "$($folder.Name): $fileCount files, $(Format-Size $totalSize) -- $($folder.Path) [ONEDRIVE SYNCED]" -Level Info
             } else {
-                Write-Log "$($folder.Name): $fileCount files, $(Format-Size $totalSize) — $($folder.Path)" -Level Info
+                Write-Log "$($folder.Name): $fileCount files, $(Format-Size $totalSize) -- $($folder.Path)" -Level Info
             }
             $results += $result
         } catch {
-            Write-Log "$($folder.Name): error scanning — $($_.Exception.Message)" -Level Warn
+            Write-Log "$($folder.Name): error scanning -- $($_.Exception.Message)" -Level Warn
             $results += @{ Name = $folder.Name; Path = $folder.Path; FileCount = 0; Size = 0; SizeText = "Error"; Error = $_.Exception.Message }
         }
     }
@@ -433,8 +478,14 @@ function Get-CustomDataFolders {
                     # Skip user profiles root on C:
                     if ($root -ieq "C:\") {
                         $isSystem = $isSystem -or ($name -ieq "Users")
+                        # Skip known software install folders on C: (reinstalled via winget)
+                        foreach ($pattern in $script:InstallFolderPatterns) {
+                            if ($name -match $pattern) { $isSystem = $true; break }
+                        }
                     }
-                    -not $isSystem -and -not $name.StartsWith('$')
+                    # Skip OneDrive folders -- they sync automatically
+                    $isOneDrive = $name -match '^OneDrive'
+                    -not $isSystem -and -not $name.StartsWith('$') -and -not $isOneDrive
                 }
             foreach ($folder in $topFolders) {
                 try {
@@ -453,15 +504,15 @@ function Get-CustomDataFolders {
                         TopFiles  = $fileCount
                         TopSize   = $topSize
                         SizeText  = Format-Size $topSize
-                        Note      = "(top-level size only — deep scan skipped for speed)"
+                        Note      = "(top-level size only -- deep scan skipped for speed)"
                     }
-                    Write-Log "  $($drive.Name):\$($folder.Name) — $subCount subdirs, $fileCount top files" -Level Info
+                    Write-Log "  $($drive.Name):\$($folder.Name) -- $subCount subdirs, $fileCount top files" -Level Info
                 } catch {
-                    Write-Log "  $($drive.Name):\$($folder.Name) — access denied or error" -Level Warn
+                    Write-Log "  $($drive.Name):\$($folder.Name) -- access denied or error" -Level Warn
                 }
             }
         } catch {
-            Write-Log "  Drive $($drive.Name): — error listing folders" -Level Warn
+            Write-Log "  Drive $($drive.Name): -- error listing folders" -Level Warn
         }
     }
     return $results
@@ -472,7 +523,7 @@ function Get-InstalledSoftware {
 
     $software = @{}  # Use hashtable to deduplicate by name
 
-    # Method 1: Registry (64-bit + 32-bit uninstall keys) — catches software on ALL drives
+    # Method 1: Registry (64-bit + 32-bit uninstall keys) -- catches software on ALL drives
     $regPaths = @(
         "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
         "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
@@ -548,34 +599,6 @@ function Get-InstalledSoftware {
                     }
                 }
                 if ($wName -and $wId -and $wId -match '^\S+\.\S+') {
-                    # Detect truncated IDs (winget list truncates long IDs with ellipsis)
-                    if ($wId -match '[\u2026\u0393\u00C3\u00E2\u0080\u00A6]|ΓÇ|â€¦' -or ($wId -match '^MSIX\\' -and $wId -notmatch '_[a-z0-9]{13}$')) {
-                        # Truncated MSIX ID — try to resolve via winget search (msstore first, then winget)
-                        $resolved = $false
-                        try {
-                            foreach ($src in @('msstore','winget')) {
-                                $searchOut = & winget search --name $wName --source $src --accept-source-agreements 2>$null
-                                $foundId = $searchOut | ForEach-Object {
-                                    if ($src -eq 'msstore' -and $_ -match '\b([A-Z0-9]{10,14})\b\s+Unknown\s+msstore') { $Matches[1] }
-                                    elseif ($src -eq 'winget' -and $_ -match '(\S+\.\S+)\s+[\d\.]+\s+.*winget') { $Matches[1] }
-                                } | Select-Object -First 1
-                                if ($foundId) {
-                                    $wId = $foundId
-                                    Write-Log "Resolved truncated ID for '$wName' to $src`: $foundId" -Level Info
-                                    $resolved = $true
-                                    break
-                                }
-                            }
-                            if (-not $resolved) {
-                                Write-Log "Could not resolve truncated winget ID for '$wName' (original: $wId) — will skip in install script" -Level Warn
-                                $wId = ""
-                            }
-                        } catch {
-                            Write-Log "Failed to resolve truncated ID for '$wName': $($_.Exception.Message)" -Level Warn
-                            $wId = ""
-                        }
-                    }
-                    if (-not $wId) { continue }
                     $wingetMap[$wName] = $wId
                     # Also add to software list if not already there
                     if (-not $software.ContainsKey($wName)) {
@@ -601,7 +624,7 @@ function Get-InstalledSoftware {
             Write-Log "Winget list failed: $($_.Exception.Message)" -Level Warn
         }
     } else {
-        Write-Log "winget not found — install it for better software detection" -Level Warn
+        Write-Log "winget not found -- install it for better software detection" -Level Warn
     }
 
     # Method 3: Scan for portable apps (standalone .exe not in Program Files or registry)
@@ -662,42 +685,6 @@ function Get-InstalledSoftware {
         Write-Log "Portable apps found: $($portableApps.Count) standalone executables in tools/portable folders" -Level Success
     }
 
-    # ── Collapse MSI sub-components into parent installs ──
-    # Installers like Python, Visual Studio, Java register each feature as a
-    # separate registry entry (e.g. "Python 3.13 Core Interpreter", "Python 3.13
-    # pip Bootstrap"). We keep only the main entry and remove the rest.
-    $subComponentPatterns = @(
-        # Python: keep "Python 3.x.y (64-bit)" or "Python 3.x.y", remove sub-features
-        @{ Parent = '^Python \d+\.\d+\.\d+(\s+\((?:64|32)-bit\))?$'
-           Child  = '^Python \d+\.\d+\.\d+\s+(Add to Path|Core Interpreter|Development Libraries|Documentation|Executables|pip Bootstrap|Standard Library|Tcl/Tk Support|Test Suite|Utility Scripts)' }
-        # Visual Studio redistributables: keep newest, skip per-arch duplicates
-        @{ Parent = '^Microsoft Visual C\+\+.+Redistributable'
-           Child  = '^Microsoft Visual C\+\+.+Redistributable.+(Additional|Minimum|Debug)' }
-        # .NET SDK/Runtime: keep the SDK, skip host/runtime/targeting sub-entries
-        @{ Parent = '^Microsoft \.NET SDK \d'
-           Child  = '^Microsoft \.NET.+(Host|Runtime|Targeting Pack|AppHost)' }
-        # Node.js: keep main entry, remove "Node.js Corepack Manager" etc
-        @{ Parent = '^Node\.js$'
-           Child  = '^Node\.js (Corepack|npm cache)' }
-        # PowerShell 7: keep main, remove preview features
-        @{ Parent = '^PowerShell \d'
-           Child  = '^PowerShell \d.+\.\d+\.\d+-' }
-    )
-    $removedComponents = 0
-    foreach ($pattern in $subComponentPatterns) {
-        $hasParent = $software.Keys | Where-Object { $software[$_].Name -match $pattern.Parent } | Select-Object -First 1
-        if ($hasParent) {
-            $children = @($software.Keys | Where-Object { $software[$_].Name -match $pattern.Child })
-            foreach ($child in $children) {
-                $software.Remove($child)
-                $removedComponents++
-            }
-        }
-    }
-    if ($removedComponents -gt 0) {
-        Write-Log "Collapsed $removedComponents installer sub-components into parent entries" -Level Info
-    }
-
     # Categorize software
     foreach ($key in @($software.Keys)) {
         $app = $software[$key]
@@ -736,35 +723,6 @@ function Get-InstalledSoftware {
         }
     }
 
-    # ── Deduplicate by WingetId ──
-    # Multiple registry entries can resolve to the same winget package
-    # (e.g. "Adobe Acrobat (64-bit)" / "Adobe Acrobat Reader" → Adobe.Acrobat.Reader.64-bit,
-    #  PowerToys shell extensions → XP89DCGQ3K6VLD, Teams sub-components → Microsoft.Teams).
-    # Keep the first (shortest-name) entry per WingetId.
-    $seenWingetIds = @{}
-    $wingetIdDupes = 0
-    foreach ($key in @($software.Keys)) {
-        $app = $software[$key]
-        $wid = $app.WingetId
-        if (-not $wid) { continue }
-        if ($seenWingetIds.ContainsKey($wid)) {
-            # Keep whichever has the shorter name (likely the "parent" entry)
-            $existing = $seenWingetIds[$wid]
-            if ($app.Name.Length -lt $existing.Name.Length) {
-                $software.Remove($existing.Name)
-                $seenWingetIds[$wid] = $app
-            } else {
-                $software.Remove($key)
-            }
-            $wingetIdDupes++
-        } else {
-            $seenWingetIds[$wid] = $app
-        }
-    }
-    if ($wingetIdDupes -gt 0) {
-        Write-Log "Removed $wingetIdDupes entries that shared the same winget package ID" -Level Info
-    }
-
     $devCount = @($software.Values | Where-Object { $_.IsDev }).Count
     $genCount = @($software.Values | Where-Object { $_.IsGeneral }).Count
     $otherCount = $software.Count - $devCount - $genCount
@@ -801,13 +759,13 @@ function Get-UserConfigs {
     # SSH keys
     $sshDir = Join-Path $userProfile ".ssh"
     if (Test-Path $sshDir) {
-        $sshFiles = Get-ChildItem $sshDir -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
+        $sshFiles = @(Get-ChildItem $sshDir -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name)
         $configs["SSHKeys"] = @{
             Name   = "SSH Keys"
             Path   = $sshDir
             Files  = @($sshFiles)
             Found  = $true
-            Note   = "SECURITY: Transfer these manually via USB — never over network unencrypted"
+            Note   = "SECURITY: Transfer these manually via USB -- never over network unencrypted"
         }
         Write-Log "SSH directory found: $($sshFiles.Count) files (keys should be transferred manually/securely)" -Level Success
     } else {
@@ -912,7 +870,7 @@ function Get-UserConfigs {
             if (Test-Path $bm) { $ffFound = $true; $ffPath = $p.FullName; break }
         }
     }
-    $bookmarks["Firefox"] = @{ Name = "Firefox"; Path = $ffPath; Found = $ffFound; Note = if ($ffFound) { "Firefox uses places.sqlite — export bookmarks via browser menu" } else { "" } }
+    $bookmarks["Firefox"] = @{ Name = "Firefox"; Path = $ffPath; Found = $ffFound; Note = if ($ffFound) { "Firefox uses places.sqlite -- export bookmarks via browser menu" } else { "" } }
     $configs["Bookmarks"] = @{
         Name      = "Browser Bookmarks"
         Browsers  = $bookmarks
@@ -940,8 +898,7 @@ function Get-UserConfigs {
                     if (Test-Path $manifest) {
                         $mj = Get-Content $manifest -Raw -Encoding UTF8 -ErrorAction SilentlyContinue | ConvertFrom-Json -ErrorAction SilentlyContinue
                         $extName = if ($mj.name -and $mj.name -notmatch '^__MSG_') { $mj.name } else { $extDir.Name }
-                        # Chrome extensions are always from Chrome Web Store
-                        $chromeExts += @{ Name = $extName; Id = $extDir.Name; Version = $mj.version; Source = 'ChromeWebStore' }
+                        $chromeExts += @{ Name = $extName; Id = $extDir.Name; Version = $mj.version }
                     }
                 }
             } catch { }
@@ -950,9 +907,7 @@ function Get-UserConfigs {
     $browserExtensions["Chrome"] = @{ Name = "Chrome Extensions"; Extensions = $chromeExts; Found = $chromeExts.Count -gt 0 }
     if ($chromeExts.Count -gt 0) { Write-Log "Chrome extensions: $($chromeExts.Count) found" -Level Success }
 
-    # Edge extensions — detect source store via update_url in manifest.json
-    # Chrome Web Store: update_url contains "clients2.google.com"
-    # Edge Add-ons:     update_url contains "edge.microsoft.com"
+    # Edge extensions
     $edgeExtDir = Join-Path $env:LOCALAPPDATA "Microsoft\Edge\User Data\Default\Extensions"
     $edgeExts = @()
     if (Test-Path $edgeExtDir) {
@@ -965,21 +920,14 @@ function Get-UserConfigs {
                     if (Test-Path $manifest) {
                         $mj = Get-Content $manifest -Raw -Encoding UTF8 -ErrorAction SilentlyContinue | ConvertFrom-Json -ErrorAction SilentlyContinue
                         $extName = if ($mj.name -and $mj.name -notmatch '^__MSG_') { $mj.name } else { $extDir.Name }
-                        $source = if ($mj.update_url -match 'clients2\.google\.com') { 'ChromeWebStore' }
-                                  elseif ($mj.update_url -match 'edge\.microsoft\.com') { 'EdgeAddons' }
-                                  else { 'Unknown' }
-                        $edgeExts += @{ Name = $extName; Id = $extDir.Name; Version = $mj.version; Source = $source }
+                        $edgeExts += @{ Name = $extName; Id = $extDir.Name; Version = $mj.version }
                     }
                 }
             } catch { }
         }
     }
     $browserExtensions["Edge"] = @{ Name = "Edge Extensions"; Extensions = $edgeExts; Found = $edgeExts.Count -gt 0 }
-    if ($edgeExts.Count -gt 0) {
-        $fromChrome = @($edgeExts | Where-Object { $_.Source -eq 'ChromeWebStore' }).Count
-        $fromEdge   = @($edgeExts | Where-Object { $_.Source -eq 'EdgeAddons' }).Count
-        Write-Log "Edge extensions: $($edgeExts.Count) found ($fromEdge from Edge store, $fromChrome from Chrome Web Store)" -Level Success
-    }
+    if ($edgeExts.Count -gt 0) { Write-Log "Edge extensions: $($edgeExts.Count) found" -Level Success }
 
     # Firefox add-ons
     $ffAddons = @()
@@ -1041,7 +989,7 @@ function Get-UserConfigs {
     }
     if ($officeAddins.Count -gt 0) { Write-Log "Office add-ins: $($officeAddins.Count) found (Outlook, Excel, Word, PowerPoint)" -Level Success }
 
-    # Outlook rules (guidance only — can't auto-export)
+    # Outlook rules (guidance only -- can't auto-export)
     $configs["OutlookRules"] = @{
         Name  = "Outlook Rules"
         Found = $false
@@ -1052,7 +1000,7 @@ function Get-UserConfigs {
     # Scheduled Tasks (user-created only)
     $tasks = @()
     try {
-        # Use a background job with timeout — Get-ScheduledTask can hang on some systems
+        # Use a background job with timeout -- Get-ScheduledTask can hang on some systems
         $taskJob = Start-Job -ScriptBlock {
             Get-ScheduledTask -ErrorAction SilentlyContinue | ForEach-Object {
                 $userId = $null
@@ -1073,7 +1021,7 @@ function Get-UserConfigs {
         if ($taskResult) {
             $tasks = @($taskJob | Receive-Job)
         } else {
-            Write-Log "Scheduled tasks scan timed out — skipping (Task Scheduler may be busy)" -Level Warn
+            Write-Log "Scheduled tasks scan timed out -- skipping (Task Scheduler may be busy)" -Level Warn
         }
         Stop-Job $taskJob -ErrorAction SilentlyContinue
         Remove-Job $taskJob -Force -ErrorAction SilentlyContinue
@@ -1142,12 +1090,18 @@ function Get-UserConfigs {
     Write-Log "Scanning Windows settings..." -Level Info
     $winSettings = @{}
 
-    # Saved WiFi profiles
+    # Saved WiFi profiles (language-neutral: match lines with ":" that follow the header pattern)
     $wifiProfiles = @()
     try {
         $wifiOutput = & netsh wlan show profiles 2>$null
         if ($wifiOutput) {
-            $wifiProfiles = @($wifiOutput | Select-String 'All User Profile\s*:\s*(.+)' | ForEach-Object { $_.Matches[0].Groups[1].Value.Trim() })
+            # netsh output varies by locale; profile lines always contain ":" with the name after the last ":"
+            $wifiProfiles = @($wifiOutput | ForEach-Object {
+                if ($_ -match ':\s*(.+)$' -and $_ -notmatch '^-') {
+                    $candidate = $Matches[1].Trim()
+                    if ($candidate -and $candidate.Length -gt 0 -and $candidate -notmatch '^\s*$') { $candidate }
+                }
+            } | Where-Object { $_ })
         }
     } catch { }
     $winSettings["WiFi"] = @{
@@ -1291,9 +1245,9 @@ function Get-UserConfigs {
         LaunchTo       = $launchTo
         Found          = $null -ne $showExtensions
         Sync           = "export"
-        SyncNote       = "Captured in scan report — set manually on new laptop if needed"
+        SyncNote       = "These are captured and can be restored via Restore-Configs.ps1"
     }
-    if ($showExtensions -ne $null) {
+    if ($null -ne $showExtensions) {
         Write-Log "File Explorer: ShowExtensions=$showExtensions, ShowHidden=$showHidden, LaunchTo=$launchTo" -Level Info
     }
 
@@ -1336,12 +1290,237 @@ function Get-UserConfigs {
         Found    = ($winSettings.Values | Where-Object { $_.Found }).Count -gt 0
     }
 
+    # Installed printers
+    Write-Log "Scanning printers..." -Level Info
+    $printers = @()
+    try {
+        $printerList = Get-Printer -ErrorAction SilentlyContinue
+        foreach ($p in $printerList) {
+            $printers += @{ Name = $p.Name; DriverName = $p.DriverName; PortName = $p.PortName; Shared = $p.Shared; Type = $p.Type.ToString() }
+        }
+    } catch { }
+    $configs["Printers"] = @{
+        Name     = "Installed Printers"
+        Printers = $printers
+        Found    = $printers.Count -gt 0
+        SyncNote = "Re-add printers on new laptop: Settings > Bluetooth & Devices > Printers. Note IPs for network printers"
+    }
+    if ($printers.Count -gt 0) { Write-Log "Printers: $($printers.Count) found" -Level Success }
+
+    # Mapped network drives
+    Write-Log "Scanning mapped drives..." -Level Info
+    $mappedDrives = @()
+    try {
+        Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue | Where-Object { $_.DisplayRoot } | ForEach-Object {
+            $mappedDrives += @{ Name = $_.Name; Root = $_.DisplayRoot }
+        }
+    } catch { }
+    $configs["MappedDrives"] = @{
+        Name   = "Mapped Network Drives"
+        Drives = $mappedDrives
+        Found  = $mappedDrives.Count -gt 0
+        SyncNote = "Re-map on new laptop: net use Z: \\\\server\\share /persistent:yes"
+    }
+    if ($mappedDrives.Count -gt 0) { Write-Log "Mapped drives: $($mappedDrives.Count) found ($( ($mappedDrives | ForEach-Object { "$($_.Name): -> $($_.Root)" }) -join ', ' ))" -Level Success }
+
+    # WSL distros
+    Write-Log "Scanning WSL distros..." -Level Info
+    $wslDistros = @()
+    try {
+        $wslOutput = & wsl --list --verbose 2>$null
+        if ($LASTEXITCODE -eq 0 -and $wslOutput) {
+            # Skip header line, parse name + state + version
+            $started = $false
+            foreach ($line in $wslOutput) {
+                $clean = $line -replace '\x00', ''  # wsl --list outputs UTF-16
+                if ($clean -match '^\s*NAME\s+STATE' -or $clean -match '^\s*-{3,}') { $started = $true; continue }
+                if ($started -and $clean.Trim()) {
+                    $isDefault = $clean.StartsWith('*')
+                    $parts = ($clean -replace '^\*\s*', '').Trim() -split '\s{2,}'
+                    if ($parts.Count -ge 2) {
+                        $wslDistros += @{ Name = $parts[0]; State = $parts[1]; Version = if ($parts.Count -ge 3) { $parts[2] } else { '' }; IsDefault = $isDefault }
+                    }
+                }
+            }
+        }
+    } catch { }
+    $configs["WSLDistros"] = @{
+        Name    = "WSL Distributions"
+        Distros = $wslDistros
+        Found   = $wslDistros.Count -gt 0
+        SyncNote = "Export: wsl --export <distro> backup.tar | Import: wsl --import <distro> <path> backup.tar"
+    }
+    if ($wslDistros.Count -gt 0) { Write-Log "WSL distros: $($wslDistros.Count) found ($( ($wslDistros | ForEach-Object { $_.Name }) -join ', ' ))" -Level Success }
+
+    # Startup programs
+    Write-Log "Scanning startup programs..." -Level Info
+    $startupItems = @()
+    try {
+        # Registry Run keys (HKCU)
+        $runKey = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue
+        if ($runKey) {
+            $runKey.PSObject.Properties | Where-Object { $_.Name -notmatch '^PS' } | ForEach-Object {
+                $startupItems += @{ Name = $_.Name; Command = $_.Value; Source = "Registry (HKCU\Run)" }
+            }
+        }
+        # Startup folder
+        $startupFolder = [Environment]::GetFolderPath('Startup')
+        if ($startupFolder -and (Test-Path $startupFolder)) {
+            Get-ChildItem $startupFolder -File -ErrorAction SilentlyContinue | ForEach-Object {
+                $startupItems += @{ Name = $_.BaseName; Command = $_.FullName; Source = "Startup Folder" }
+            }
+        }
+    } catch { }
+    $configs["StartupPrograms"] = @{
+        Name  = "Startup Programs"
+        Items = $startupItems
+        Found = $startupItems.Count -gt 0
+        SyncNote = "Review which apps start at login on new laptop: Task Manager > Startup tab"
+    }
+    if ($startupItems.Count -gt 0) { Write-Log "Startup programs: $($startupItems.Count) found" -Level Success }
+
+    # Chocolatey packages
+    $chocoPackages = @()
+    if (Get-Command choco -ErrorAction SilentlyContinue) {
+        Write-Log "Scanning Chocolatey packages..." -Level Info
+        try {
+            $chocoOutput = & choco list --local-only --limit-output 2>$null
+            foreach ($line in $chocoOutput) {
+                if ($line -match '^([^|]+)\|(.+)$') {
+                    $chocoPackages += @{ Name = $Matches[1]; Version = $Matches[2] }
+                }
+            }
+        } catch { }
+    }
+    $configs["ChocoPackages"] = @{
+        Name     = "Chocolatey Packages"
+        Packages = $chocoPackages
+        Found    = $chocoPackages.Count -gt 0
+    }
+    if ($chocoPackages.Count -gt 0) { Write-Log "Chocolatey packages: $($chocoPackages.Count) found" -Level Success }
+
+    # Scoop packages
+    $scoopPackages = @()
+    if (Get-Command scoop -ErrorAction SilentlyContinue) {
+        Write-Log "Scanning Scoop packages..." -Level Info
+        try {
+            $scoopOutput = & scoop list 2>$null
+            # Scoop list outputs objects with Name, Version, Source columns
+            if ($scoopOutput) {
+                foreach ($pkg in $scoopOutput) {
+                    if ($pkg.Name) {
+                        $scoopPackages += @{ Name = $pkg.Name; Version = $pkg.Version; Source = $pkg.Source }
+                    }
+                }
+            }
+        } catch { }
+    }
+    $configs["ScoopPackages"] = @{
+        Name     = "Scoop Packages"
+        Packages = $scoopPackages
+        Found    = $scoopPackages.Count -gt 0
+    }
+    if ($scoopPackages.Count -gt 0) { Write-Log "Scoop packages: $($scoopPackages.Count) found" -Level Success }
+
+    # VS Code Insiders
+    $vscodeInsidersExtDir = Join-Path $env:USERPROFILE ".vscode-insiders\extensions"
+    $vscodeInsidersExts = @()
+    if (Test-Path $vscodeInsidersExtDir) {
+        $vscodeInsidersExts = @(Get-ChildItem -Path $vscodeInsidersExtDir -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match '^([^.]+\.[^-]+)' } |
+            ForEach-Object {
+                if ($_.Name -match '^(.+?)-\d+\.\d+') { $Matches[1] } else { $_.Name }
+            } | Sort-Object -Unique)
+    }
+    $configs["VSCodeInsiders"] = @{
+        Name       = "VS Code Insiders"
+        Extensions = $vscodeInsidersExts
+        Found      = $vscodeInsidersExts.Count -gt 0
+    }
+    if ($vscodeInsidersExts.Count -gt 0) { Write-Log "VS Code Insiders extensions: $($vscodeInsidersExts.Count) found" -Level Success }
+
+    # Custom fonts (user-installed)
+    $userFonts = @()
+    $userFontDir = Join-Path $env:LOCALAPPDATA "Microsoft\Windows\Fonts"
+    if (Test-Path $userFontDir) {
+        $userFonts = @(Get-ChildItem $userFontDir -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Extension -match '\.(ttf|otf|ttc|woff|woff2)$' } |
+            ForEach-Object { $_.BaseName })
+    }
+    $configs["CustomFonts"] = @{
+        Name  = "User-Installed Fonts"
+        Fonts = $userFonts
+        Found = $userFonts.Count -gt 0
+        SyncNote = "Copy font files to new laptop and double-click to install, or copy to %LOCALAPPDATA%\Microsoft\Windows\Fonts"
+    }
+    if ($userFonts.Count -gt 0) { Write-Log "Custom fonts: $($userFonts.Count) user-installed fonts found" -Level Success }
+
+    # Outlook signatures
+    $outlookSigDir = Join-Path $env:APPDATA "Microsoft\Signatures"
+    $outlookSigs = @()
+    if (Test-Path $outlookSigDir) {
+        $outlookSigs = @(Get-ChildItem $outlookSigDir -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Extension -match '\.(htm|html|txt|rtf)$' } |
+            ForEach-Object { $_.BaseName } | Sort-Object -Unique)
+    }
+    $configs["OutlookSignatures"] = @{
+        Name       = "Outlook Signatures"
+        Signatures = $outlookSigs
+        Path       = $outlookSigDir
+        Found      = $outlookSigs.Count -gt 0
+        SyncNote   = "Copy %APPDATA%\Microsoft\Signatures folder to new laptop"
+    }
+    if ($outlookSigs.Count -gt 0) { Write-Log "Outlook signatures: $($outlookSigs.Count) found" -Level Success }
+
+    # Credential Manager summary (count only, no secrets)
+    $credCount = 0
+    try {
+        $credOutput = & cmdkey /list 2>$null
+        if ($credOutput) {
+            $credCount = @($credOutput | Select-String 'Target:').Count
+        }
+    } catch { }
+    $configs["CredentialManager"] = @{
+        Name      = "Windows Credential Manager"
+        Count     = $credCount
+        Found     = $credCount -gt 0
+        SyncNote  = "Review saved credentials: Control Panel > Credential Manager. Transfer manually as needed"
+    }
+    if ($credCount -gt 0) { Write-Log "Credential Manager: $credCount saved credentials" -Level Success }
+
+    # Docker images and volumes (if Docker is running)
+    $dockerImages = @()
+    $dockerVolumes = @()
+    if (Get-Command docker -ErrorAction SilentlyContinue) {
+        Write-Log "Scanning Docker images/volumes..." -Level Info
+        try {
+            $imgOutput = & docker image ls --format "{{.Repository}}:{{.Tag}} ({{.Size}})" 2>$null
+            if ($LASTEXITCODE -eq 0 -and $imgOutput) {
+                $dockerImages = @($imgOutput | Where-Object { $_ -and $_ -notmatch '<none>' })
+            }
+        } catch { }
+        try {
+            $volOutput = & docker volume ls --format "{{.Name}}" 2>$null
+            if ($LASTEXITCODE -eq 0 -and $volOutput) {
+                $dockerVolumes = @($volOutput | Where-Object { $_ })
+            }
+        } catch { }
+    }
+    $configs["Docker"] = @{
+        Name    = "Docker"
+        Images  = $dockerImages
+        Volumes = $dockerVolumes
+        Found   = ($dockerImages.Count -gt 0) -or ($dockerVolumes.Count -gt 0)
+        SyncNote = "Images: docker pull to re-download. Volumes: docker run --rm -v <vol>:/data -v /backup:/backup alpine tar czf /backup/vol.tar.gz /data"
+    }
+    if ($dockerImages.Count -gt 0) { Write-Log "Docker: $($dockerImages.Count) images, $($dockerVolumes.Count) volumes" -Level Success }
+
     return $configs
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # SECTION 4: REPORT GENERATION
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 function Save-ScanCache {
     param([string]$CachePath, $ScanData)
@@ -1407,7 +1586,7 @@ function Write-MarkdownReport {
         [void]$sb.AppendLine("")
     }
 
-    # Software — Developer
+    # Software -- Developer
     $devSoftware = @($ScanData.Software | Where-Object { $_.IsDev })
     if ($devSoftware.Count -gt 0) {
         [void]$sb.AppendLine("## Developer Software ($($devSoftware.Count))")
@@ -1422,7 +1601,7 @@ function Write-MarkdownReport {
         [void]$sb.AppendLine("")
     }
 
-    # Software — General
+    # Software -- General
     $genSoftware = @($ScanData.Software | Where-Object { $_.IsGeneral })
     if ($genSoftware.Count -gt 0) {
         [void]$sb.AppendLine("## General Software ($($genSoftware.Count))")
@@ -1437,7 +1616,7 @@ function Write-MarkdownReport {
         [void]$sb.AppendLine("")
     }
 
-    # Software — Other
+    # Software -- Other
     $otherSoftware = @($ScanData.Software | Where-Object { -not $_.IsDev -and -not $_.IsGeneral })
     if ($otherSoftware.Count -gt 0) {
         [void]$sb.AppendLine("## Other Installed Software ($($otherSoftware.Count))")
@@ -1461,7 +1640,7 @@ function Write-MarkdownReport {
     if ($nonStdApps.Count -gt 0) {
         [void]$sb.AppendLine("## Software in Non-Standard Locations ($($nonStdApps.Count))")
         [void]$sb.AppendLine("")
-        [void]$sb.AppendLine("> These apps are installed outside ``C:\Program Files``. They were still detected via registry/winget and will be reinstalled via ``winget`` on the new laptop. No need to copy them — just note the custom install paths if you want the same layout.")
+        [void]$sb.AppendLine("> These apps are installed outside ``C:\Program Files``. They were still detected via registry/winget and will be reinstalled via ``winget`` on the new laptop. No need to copy them -- just note the custom install paths if you want the same layout.")
         [void]$sb.AppendLine("")
         [void]$sb.AppendLine("| Name | Install Location |")
         [void]$sb.AppendLine("|------|-----------------|")
@@ -1475,7 +1654,7 @@ function Write-MarkdownReport {
     if ($ScanData.PortableApps -and $ScanData.PortableApps.Count -gt 0) {
         [void]$sb.AppendLine("## Portable / Standalone Software ($($ScanData.PortableApps.Count))")
         [void]$sb.AppendLine("")
-        [void]$sb.AppendLine("> These are standalone ``.exe`` files found in tools/portable/apps folders. They are NOT installed via a package manager — **copy their entire folder** to the new laptop.")
+        [void]$sb.AppendLine("> These are standalone ``.exe`` files found in tools/portable/apps folders. They are NOT installed via a package manager -- **copy their entire folder** to the new laptop.")
         [void]$sb.AppendLine("")
         [void]$sb.AppendLine("| Name | Path | Size |")
         [void]$sb.AppendLine("|------|------|------|")
@@ -1494,20 +1673,31 @@ function Write-MarkdownReport {
         @{ Label = "Git config (.gitconfig)";        Found = $ScanData.Configs.GitConfig.Found }
         @{ Label = "SSH keys";                        Found = $ScanData.Configs.SSHKeys.Found }
         @{ Label = "VS Code settings + extensions";   Found = $ScanData.Configs.VSCode.Found }
+        @{ Label = "VS Code Insiders extensions";     Found = $ScanData.Configs.VSCodeInsiders.Found }
         @{ Label = "PowerShell profile";              Found = $ScanData.Configs.PSProfile.Found }
         @{ Label = "Windows Terminal settings";       Found = $ScanData.Configs.WindowsTerminal.Found }
         @{ Label = "User environment variables";      Found = $ScanData.Configs.EnvVars.Found }
         @{ Label = "Browser bookmarks";               Found = $ScanData.Configs.Bookmarks.Found }
         @{ Label = "Browser extensions (Chrome/Edge/Firefox)"; Found = $ScanData.Configs.BrowserExtensions.Found }
         @{ Label = "Office add-ins (Outlook/Excel/Word)"; Found = $ScanData.Configs.OfficeAddins.Found }
+        @{ Label = "Outlook signatures";              Found = $ScanData.Configs.OutlookSignatures.Found }
         @{ Label = "Scheduled tasks (user)";          Found = $ScanData.Configs.ScheduledTasks.Found }
+        @{ Label = "Startup programs";                Found = $ScanData.Configs.StartupPrograms.Found }
         @{ Label = "npm global packages";             Found = $ScanData.Configs.NpmGlobal.Found }
         @{ Label = "pip user packages";               Found = $ScanData.Configs.PipPackages.Found }
+        @{ Label = "Chocolatey packages";             Found = $ScanData.Configs.ChocoPackages.Found }
+        @{ Label = "Scoop packages";                  Found = $ScanData.Configs.ScoopPackages.Found }
         @{ Label = "Custom hosts file entries";       Found = $ScanData.Configs.HostsFile.Found }
+        @{ Label = "Installed printers";              Found = $ScanData.Configs.Printers.Found }
+        @{ Label = "Mapped network drives";           Found = $ScanData.Configs.MappedDrives.Found }
+        @{ Label = "WSL distributions";               Found = $ScanData.Configs.WSLDistros.Found }
+        @{ Label = "Docker images/volumes";           Found = $ScanData.Configs.Docker.Found }
+        @{ Label = "User-installed fonts";            Found = $ScanData.Configs.CustomFonts.Found }
+        @{ Label = "Saved credentials (count)";       Found = $ScanData.Configs.CredentialManager.Found }
         @{ Label = "Windows settings (WiFi, mouse, theme)"; Found = $ScanData.Configs.WindowsSettings.Found }
     )
     foreach ($item in $configItems) {
-        $icon = if ($item.Found) { "✅" } else { "⬜" }
+        $icon = if ($item.Found) { "[OK]" } else { "[ ]" }
         [void]$sb.AppendLine("- $icon $($item.Label)")
     }
     [void]$sb.AppendLine("")
@@ -1517,24 +1707,24 @@ function Write-MarkdownReport {
     [void]$sb.AppendLine("")
     [void]$sb.AppendLine("| Setting | Action | Details |")
     [void]$sb.AppendLine("|---------|--------|---------|")
-    [void]$sb.AppendLine("| Browser bookmarks/passwords/history | \`\`Sign in to sync\`\` | Verify sync is ON before migration (edge://settings/profiles/sync, chrome://settings/syncSetup) |")
+    [void]$sb.AppendLine("| Browser bookmarks/passwords | \`\`Sign in to sync\`\` | Sign into Chrome/Edge/Firefox -- syncs after sign-in |")
     [void]$sb.AppendLine("| VS Code settings + extensions | \`\`Enable sync\`\` | Ctrl+Shift+P > Settings Sync: Turn On (sign in with GitHub/Microsoft) |")
-    [void]$sb.AppendLine("| OneDrive files | \`\`Sign in to sync\`\` | Sign into OneDrive — files sync after sign-in |")
+    [void]$sb.AppendLine("| OneDrive files | \`\`Sign in to sync\`\` | Sign into OneDrive -- files sync after sign-in |")
     [void]$sb.AppendLine("| WiFi passwords | \`\`Auto-sync\`\` | Syncs via Microsoft account (if signed in) |")
     [void]$sb.AppendLine("| Theme, wallpaper, language | \`\`Auto-sync\`\` | Syncs via Microsoft account |")
     [void]$sb.AppendLine("| Windows Terminal settings | \`\`Auto-sync\`\` | Syncs via Microsoft account |")
     [void]$sb.AppendLine("| Mouse speed, keyboard layout | \`\`Partial sync\`\` | Basic settings sync; custom cursors need manual setup |")
-    [void]$sb.AppendLine("| Git config (.gitconfig) | \`\`Manual\`\` | Run: git config --global user.name/email on new laptop |")
-    [void]$sb.AppendLine("| SSH keys | \`\`Manual USB\`\` | Copy via USB drive only — never over network |")
-    [void]$sb.AppendLine("| Environment variables | \`\`Skip\`\` | Software installers create their own — see scan report for old values |")
-    [void]$sb.AppendLine("| PowerShell profile | \`\`Manual\`\` | Copy from old laptop if customized — see scan report |")
+    [void]$sb.AppendLine("| Git config (.gitconfig) | \`\`Export\`\` | Captured by this tool -- restored via Restore-Configs.ps1 |")
+    [void]$sb.AppendLine("| SSH keys | \`\`Manual USB\`\` | Copy via USB drive only -- never over network |")
+    [void]$sb.AppendLine("| Environment variables | \`\`Export\`\` | Captured by this tool -- restored via Restore-Configs.ps1 |")
+    [void]$sb.AppendLine("| PowerShell profile | \`\`Export\`\` | Captured by this tool -- restored via Restore-Configs.ps1 |")
     [void]$sb.AppendLine("| Outlook rules | \`\`Manual export\`\` | File > Manage Rules > Options > Export Rules |")
-    [void]$sb.AppendLine("| File Explorer preferences | \`\`Manual\`\` | Settings > File Explorer Options on new laptop |")
+    [void]$sb.AppendLine("| File Explorer preferences | \`\`Export\`\` | Show extensions, hidden files, launch folder -- restored via Restore-Configs.ps1 |")
     [void]$sb.AppendLine("| Default apps (browser, PDF) | \`\`Manual\`\` | Set via Settings > Default Apps on new laptop |")
     [void]$sb.AppendLine("| Taskbar preferences | \`\`Auto-sync\`\` | Syncs via Microsoft account |")
-    [void]$sb.AppendLine("| Display scaling, brightness | \`\`Manual\`\` | Hardware-dependent — set manually on new laptop |")
-    [void]$sb.AppendLine("| Power & sleep timeouts | \`\`Manual\`\` | Hardware-dependent — set via Settings > Power |")
-    [void]$sb.AppendLine("| Sound device defaults | \`\`Manual\`\` | Hardware-dependent — set via Settings > Sound |")
+    [void]$sb.AppendLine("| Display scaling, brightness | \`\`Manual\`\` | Hardware-dependent -- set manually on new laptop |")
+    [void]$sb.AppendLine("| Power & sleep timeouts | \`\`Manual\`\` | Hardware-dependent -- set via Settings > Power |")
+    [void]$sb.AppendLine("| Sound device defaults | \`\`Manual\`\` | Hardware-dependent -- set via Settings > Sound |")
     [void]$sb.AppendLine("| Printer configs | \`\`Manual\`\` | Re-add printers via Settings > Printers |")
     [void]$sb.AppendLine("")
 
@@ -1645,10 +1835,145 @@ function Write-MarkdownReport {
         [void]$sb.AppendLine("")
     }
 
+    # Printers
+    if ($ScanData.Configs.Printers.Found) {
+        [void]$sb.AppendLine("## Installed Printers ($($ScanData.Configs.Printers.Printers.Count))")
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine("| Name | Driver | Port | Type |")
+        [void]$sb.AppendLine("|------|--------|------|------|")
+        foreach ($p in $ScanData.Configs.Printers.Printers) {
+            [void]$sb.AppendLine("| $($p.Name) | $($p.DriverName) | $($p.PortName) | $($p.Type) |")
+        }
+        [void]$sb.AppendLine("")
+    }
+
+    # Mapped network drives
+    if ($ScanData.Configs.MappedDrives.Found) {
+        [void]$sb.AppendLine("## Mapped Network Drives ($($ScanData.Configs.MappedDrives.Drives.Count))")
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine("| Drive | Network Path |")
+        [void]$sb.AppendLine("|-------|-------------|")
+        foreach ($d in $ScanData.Configs.MappedDrives.Drives) {
+            [void]$sb.AppendLine("| $($d.Name): | ``$($d.Root)`` |")
+        }
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine("> Re-map on new laptop: ``net use Z: \\server\share /persistent:yes``")
+        [void]$sb.AppendLine("")
+    }
+
+    # WSL distros
+    if ($ScanData.Configs.WSLDistros.Found) {
+        [void]$sb.AppendLine("## WSL Distributions ($($ScanData.Configs.WSLDistros.Distros.Count))")
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine("| Distro | State | WSL Version | Default |")
+        [void]$sb.AppendLine("|--------|-------|-------------|---------|")
+        foreach ($d in $ScanData.Configs.WSLDistros.Distros) {
+            $def = if ($d.IsDefault) { "Yes" } else { "" }
+            [void]$sb.AppendLine("| $($d.Name) | $($d.State) | $($d.Version) | $def |")
+        }
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine("> Export: ``wsl --export <distro> backup.tar`` | Import: ``wsl --import <distro> <path> backup.tar``")
+        [void]$sb.AppendLine("")
+    }
+
+    # Startup programs
+    if ($ScanData.Configs.StartupPrograms.Found) {
+        [void]$sb.AppendLine("## Startup Programs ($($ScanData.Configs.StartupPrograms.Items.Count))")
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine("| Name | Source |")
+        [void]$sb.AppendLine("|------|--------|")
+        foreach ($s in $ScanData.Configs.StartupPrograms.Items) {
+            [void]$sb.AppendLine("| $($s.Name) | $($s.Source) |")
+        }
+        [void]$sb.AppendLine("")
+    }
+
+    # Chocolatey packages
+    if ($ScanData.Configs.ChocoPackages.Found) {
+        [void]$sb.AppendLine("## Chocolatey Packages ($($ScanData.Configs.ChocoPackages.Packages.Count))")
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine("<details><summary>Click to expand</summary>")
+        [void]$sb.AppendLine("")
+        foreach ($p in $ScanData.Configs.ChocoPackages.Packages) {
+            [void]$sb.AppendLine("- $($p.Name) ($($p.Version))")
+        }
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine("</details>")
+        [void]$sb.AppendLine("")
+    }
+
+    # Scoop packages
+    if ($ScanData.Configs.ScoopPackages.Found) {
+        [void]$sb.AppendLine("## Scoop Packages ($($ScanData.Configs.ScoopPackages.Packages.Count))")
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine("<details><summary>Click to expand</summary>")
+        [void]$sb.AppendLine("")
+        foreach ($p in $ScanData.Configs.ScoopPackages.Packages) {
+            [void]$sb.AppendLine("- $($p.Name) ($($p.Version))")
+        }
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine("</details>")
+        [void]$sb.AppendLine("")
+    }
+
+    # Outlook signatures
+    if ($ScanData.Configs.OutlookSignatures.Found) {
+        [void]$sb.AppendLine("## Outlook Signatures ($($ScanData.Configs.OutlookSignatures.Signatures.Count))")
+        [void]$sb.AppendLine("")
+        foreach ($sig in $ScanData.Configs.OutlookSignatures.Signatures) {
+            [void]$sb.AppendLine("- $sig")
+        }
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine("> Copy ``%APPDATA%\Microsoft\Signatures`` folder to new laptop")
+        [void]$sb.AppendLine("")
+    }
+
+    # Custom fonts
+    if ($ScanData.Configs.CustomFonts.Found) {
+        [void]$sb.AppendLine("## User-Installed Fonts ($($ScanData.Configs.CustomFonts.Fonts.Count))")
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine("<details><summary>Click to expand</summary>")
+        [void]$sb.AppendLine("")
+        foreach ($f in $ScanData.Configs.CustomFonts.Fonts) {
+            [void]$sb.AppendLine("- $f")
+        }
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine("</details>")
+        [void]$sb.AppendLine("")
+    }
+
+    # Docker
+    if ($ScanData.Configs.Docker.Found) {
+        [void]$sb.AppendLine("## Docker ($($ScanData.Configs.Docker.Images.Count) images, $($ScanData.Configs.Docker.Volumes.Count) volumes)")
+        [void]$sb.AppendLine("")
+        if ($ScanData.Configs.Docker.Images.Count -gt 0) {
+            [void]$sb.AppendLine("**Images** (re-pull with ``docker pull``):")
+            foreach ($img in $ScanData.Configs.Docker.Images) {
+                [void]$sb.AppendLine("- ``$img``")
+            }
+            [void]$sb.AppendLine("")
+        }
+        if ($ScanData.Configs.Docker.Volumes.Count -gt 0) {
+            [void]$sb.AppendLine("**Volumes** (export data before wiping):")
+            foreach ($vol in $ScanData.Configs.Docker.Volumes) {
+                [void]$sb.AppendLine("- ``$vol``")
+            }
+            [void]$sb.AppendLine("")
+        }
+    }
+
+    # Credential Manager
+    if ($ScanData.Configs.CredentialManager.Found) {
+        [void]$sb.AppendLine("## Credential Manager")
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine("$($ScanData.Configs.CredentialManager.Count) saved credentials found. Review via: Control Panel > Credential Manager")
+        [void]$sb.AppendLine("")
+    }
+
     # Manual steps reminder
     [void]$sb.AppendLine("## Manual Steps Required")
     [void]$sb.AppendLine("")
-    [void]$sb.AppendLine("- [ ] **Outlook rules**: Export via File → Manage Rules → Options → Export Rules")
+    [void]$sb.AppendLine("- [ ] **Outlook rules**: Export via File -> Manage Rules -> Options -> Export Rules")
     [void]$sb.AppendLine("- [ ] **SSH keys**: Transfer via USB drive (never over unencrypted network)")
     [void]$sb.AppendLine("- [ ] **License keys**: Note down any software license keys before wiping old laptop")
     [void]$sb.AppendLine("- [ ] **Browser passwords**: Ensure sync is enabled or export passwords")
@@ -1762,10 +2087,10 @@ function Write-HtmlReport {
         $typeClass = if ($s.IsDev) { "dev" } elseif ($s.IsGeneral) { "gen" } else { "other" }
         $typeLabel = if ($s.IsDev) { "Developer" } elseif ($s.IsGeneral) { "General" } else { "Other" }
         $typeBadge = "<span class=`"badge badge-$typeClass`">$typeLabel</span>"
-        $nameEsc = ([System.Web.HttpUtility]::HtmlEncode($s.Name))
-        $verEsc = ([System.Web.HttpUtility]::HtmlEncode($s.Version))
-        $catEsc = ([System.Web.HttpUtility]::HtmlEncode($s.Category))
-        $wIdEsc = if ($s.WingetId) { "<code>$([System.Web.HttpUtility]::HtmlEncode($s.WingetId))</code>" } else { "&mdash;" }
+        $nameEsc = (Get-HtmlEncoded $s.Name)
+        $verEsc = (Get-HtmlEncoded $s.Version)
+        $catEsc = (Get-HtmlEncoded $s.Category)
+        $wIdEsc = if ($s.WingetId) { "<code>$(Get-HtmlEncoded $s.WingetId)</code>" } else { "&mdash;" }
         [void]$sb.AppendLine("  <tr data-cat=`"$typeClass`"><td>$i</td><td>$nameEsc</td><td>$verEsc</td><td>$typeBadge</td><td>$catEsc</td><td>$wIdEsc</td></tr>")
     }
     [void]$sb.AppendLine('</tbody></table></div>')
@@ -1778,16 +2103,27 @@ function Write-HtmlReport {
         @{ Label = "Git config (.gitconfig)"; Key = "GitConfig" }
         @{ Label = "SSH keys (.ssh/)"; Key = "SSHKeys" }
         @{ Label = "VS Code settings & extensions"; Key = "VSCode" }
+        @{ Label = "VS Code Insiders extensions"; Key = "VSCodeInsiders" }
         @{ Label = "PowerShell profile"; Key = "PSProfile" }
         @{ Label = "Windows Terminal settings"; Key = "WindowsTerminal" }
         @{ Label = "User environment variables"; Key = "EnvVars" }
         @{ Label = "Browser bookmarks"; Key = "Bookmarks" }
         @{ Label = "Browser extensions (Chrome/Edge/Firefox)"; Key = "BrowserExtensions" }
         @{ Label = "Office add-ins (Outlook/Excel/Word)"; Key = "OfficeAddins" }
+        @{ Label = "Outlook signatures"; Key = "OutlookSignatures" }
         @{ Label = "Scheduled tasks (user-created)"; Key = "ScheduledTasks" }
+        @{ Label = "Startup programs"; Key = "StartupPrograms" }
         @{ Label = "npm global packages"; Key = "NpmGlobal" }
         @{ Label = "pip user packages"; Key = "PipPackages" }
+        @{ Label = "Chocolatey packages"; Key = "ChocoPackages" }
+        @{ Label = "Scoop packages"; Key = "ScoopPackages" }
         @{ Label = "Custom hosts file entries"; Key = "HostsFile" }
+        @{ Label = "Installed printers"; Key = "Printers" }
+        @{ Label = "Mapped network drives"; Key = "MappedDrives" }
+        @{ Label = "WSL distributions"; Key = "WSLDistros" }
+        @{ Label = "Docker images/volumes"; Key = "Docker" }
+        @{ Label = "User-installed fonts"; Key = "CustomFonts" }
+        @{ Label = "Saved credentials (count)"; Key = "CredentialManager" }
         @{ Label = "Windows settings (WiFi, mouse, theme)"; Key = "WindowsSettings" }
     )
     foreach ($c in $configChecks) {
@@ -1808,7 +2144,7 @@ function Write-HtmlReport {
         ,@("OneDrive files", "<span class=`"badge badge-dev`">Auto-sync</span>", "Sign into OneDrive")
         ,@("WiFi passwords", "<span class=`"badge badge-dev`">Auto-sync</span>", "Syncs via Microsoft account")
         ,@("Theme, wallpaper, language", "<span class=`"badge badge-dev`">Auto-sync</span>", "Syncs via Microsoft account")
-        ,@("Git config, env vars, PS profile", "<span class=`"badge badge-gen`">Manual</span>", "Set up manually on new laptop &mdash; see scan report for old values")
+        ,@("Git config, env vars, PS profile", "<span class=`"badge badge-gen`">Export</span>", "Handled by Restore-Configs.ps1")
         ,@("SSH keys", "<span class=`"badge badge-other`">Manual USB</span>", "Copy via USB only &mdash; security")
         ,@("Outlook rules", "<span class=`"badge badge-other`">Manual</span>", "File &rarr; Manage Rules &rarr; Export")
         ,@("Display scaling, sound", "<span class=`"badge badge-other`">Manual</span>", "Hardware-dependent &mdash; set on new laptop")
@@ -1824,10 +2160,52 @@ function Write-HtmlReport {
         [void]$sb.AppendLine("<h2>VS Code Extensions ($($ScanData.Configs.VSCode.Extensions.Count))</h2>")
         [void]$sb.AppendLine('<div class="section" style="max-height:300px;overflow-y:auto">')
         foreach ($ext in $ScanData.Configs.VSCode.Extensions) {
-            [void]$sb.AppendLine("<div style=`"padding:2px 0`"><code>$([System.Web.HttpUtility]::HtmlEncode($ext))</code></div>")
+            [void]$sb.AppendLine("<div style=`"padding:2px 0`"><code>$(Get-HtmlEncoded $ext)</code></div>")
         }
         [void]$sb.AppendLine('</div>')
     }
+
+    # Printers
+    if ($ScanData.Configs.Printers.Found) {
+        [void]$sb.AppendLine("<h2>Installed Printers ($($ScanData.Configs.Printers.Printers.Count))</h2>")
+        [void]$sb.AppendLine('<table><thead><tr><th>Name</th><th>Driver</th><th>Port</th><th>Type</th></tr></thead><tbody>')
+        foreach ($p in $ScanData.Configs.Printers.Printers) {
+            [void]$sb.AppendLine("<tr><td>$(Get-HtmlEncoded $p.Name)</td><td>$(Get-HtmlEncoded $p.DriverName)</td><td>$(Get-HtmlEncoded $p.PortName)</td><td>$($p.Type)</td></tr>")
+        }
+        [void]$sb.AppendLine('</tbody></table>')
+    }
+
+    # Mapped drives
+    if ($ScanData.Configs.MappedDrives.Found) {
+        [void]$sb.AppendLine("<h2>Mapped Network Drives ($($ScanData.Configs.MappedDrives.Drives.Count))</h2>")
+        [void]$sb.AppendLine('<div class="section">')
+        foreach ($d in $ScanData.Configs.MappedDrives.Drives) {
+            [void]$sb.AppendLine("<div class=`"config-item`"><span class=`"config-icon`">&#128190;</span> <strong>$($d.Name):</strong> &rarr; <code>$(Get-HtmlEncoded $d.Root)</code></div>")
+        }
+        [void]$sb.AppendLine('</div>')
+    }
+
+    # WSL distros
+    if ($ScanData.Configs.WSLDistros.Found) {
+        [void]$sb.AppendLine("<h2>WSL Distributions ($($ScanData.Configs.WSLDistros.Distros.Count))</h2>")
+        [void]$sb.AppendLine('<table><thead><tr><th>Distro</th><th>State</th><th>WSL Version</th></tr></thead><tbody>')
+        foreach ($d in $ScanData.Configs.WSLDistros.Distros) {
+            $def = if ($d.IsDefault) { " (default)" } else { "" }
+            [void]$sb.AppendLine("<tr><td><strong>$(Get-HtmlEncoded $d.Name)$def</strong></td><td>$($d.State)</td><td>$($d.Version)</td></tr>")
+        }
+        [void]$sb.AppendLine('</tbody></table>')
+    }
+
+    # Startup programs
+    if ($ScanData.Configs.StartupPrograms.Found) {
+        [void]$sb.AppendLine("<h2>Startup Programs ($($ScanData.Configs.StartupPrograms.Items.Count))</h2>")
+        [void]$sb.AppendLine('<table><thead><tr><th>Name</th><th>Source</th></tr></thead><tbody>')
+        foreach ($s in $ScanData.Configs.StartupPrograms.Items) {
+            [void]$sb.AppendLine("<tr><td>$(Get-HtmlEncoded $s.Name)</td><td>$($s.Source)</td></tr>")
+        }
+        [void]$sb.AppendLine('</tbody></table>')
+    }
+
     [void]$sb.AppendLine('</div>')
 
     # Tab: Data Folders
@@ -1835,7 +2213,7 @@ function Write-HtmlReport {
     [void]$sb.AppendLine('<h2>User Profile Folders</h2>')
     [void]$sb.AppendLine('<table><thead><tr><th>Folder</th><th>Files</th><th>Size</th><th>Path</th></tr></thead><tbody>')
     foreach ($f in $ScanData.UserFolders) {
-        [void]$sb.AppendLine("<tr><td><strong>$($f.Name)</strong></td><td>$($f.FileCount)</td><td>$($f.SizeText)</td><td><code>$([System.Web.HttpUtility]::HtmlEncode($f.Path))</code></td></tr>")
+        [void]$sb.AppendLine("<tr><td><strong>$($f.Name)</strong></td><td>$($f.FileCount)</td><td>$($f.SizeText)</td><td><code>$(Get-HtmlEncoded $f.Path)</code></td></tr>")
     }
     [void]$sb.AppendLine('</tbody></table>')
     if ($ScanData.CustomFolders.Count -gt 0) {
@@ -1876,9 +2254,9 @@ function Write-HtmlReport {
         ,@('1', 'Review the generated scripts', '&mdash; open each .ps1 file before running. They are plain readable PowerShell.')
         ,@('2', 'Transfer the migration-output folder', 'to your new laptop (see transfer options below)')
         ,@('3', 'Run <code>Install-Software.ps1</code>', '&mdash; installs all detected software via winget. Run as Administrator in PowerShell')
-        ,@('4', 'Run <code>Transfer-Data.ps1</code>', '&mdash; guides you through copying your data folders (Documents, Projects, etc.)')
-        ,@('5', 'Sign in everywhere', '&mdash; VS Code Settings Sync, browsers, OneDrive. Most configs restore automatically.')
-        ,@('6', 'Complete the <strong>Manual Steps</strong>', '(see the Manual Steps tab) &mdash; SSH keys, git config, license keys, 2FA backup, etc.')
+        ,@('4', 'Run <code>Restore-Configs.ps1</code>', '&mdash; restores app settings, terminal profiles, Git config, VS Code extensions &amp; settings')
+        ,@('5', 'Run <code>Transfer-Data.ps1</code>', '&mdash; guides you through copying your data folders (Documents, Projects, etc.)')
+        ,@('6', 'Complete the <strong>Manual Steps</strong>', '(see the Manual Steps tab) &mdash; SSH keys, license keys, 2FA backup, etc.')
         ,@('7', 'Verify everything works', '&mdash; open your apps, check Git auth, test terminal profiles, verify cloud sync')
     )
     foreach ($ns in $nextSteps) {
@@ -1893,7 +2271,7 @@ function Write-HtmlReport {
     [void]$sb.AppendLine("<tr><td><strong>&amp;#127760; Network Share</strong></td><td>On OLD laptop: right-click <code>migration-output</code> &rarr; Properties &rarr; Sharing &rarr; Share. On NEW laptop: open <code>\\$($ScanData.ComputerName)\migration-output</code> in Explorer. Both must be on the same Wi-Fi/network.</td></tr>")
     [void]$sb.AppendLine('<tr><td><strong>&amp;#9729; Cloud Sync</strong></td><td>Copy <code>migration-output</code> into your OneDrive / Google Drive / Dropbox folder. Sign into the same account on the new laptop and download.</td></tr>')
     [void]$sb.AppendLine('</tbody></table>')
-    [void]$sb.AppendLine('<p style="color:#d29922;margin-top:8px;font-size:12px">&amp;#9888; The scan JSON may contain environment variable values. Avoid sending via email or public links.</p>')
+    [void]$sb.AppendLine('<p style="color:#d29922;margin-top:8px;font-size:12px">&amp;#9888; <code>Restore-Configs.ps1</code> may contain secrets (API keys, tokens). Avoid sending via email or public links.</p>')
     [void]$sb.AppendLine('</div>')
     [void]$sb.AppendLine('<div class="section" style="margin-top:12px">')
     [void]$sb.AppendLine('<h3 style="color:#f0f6fc;margin-bottom:8px;font-size:14px">&amp;#128161; Tips</h3>')
@@ -1934,18 +2312,18 @@ function Write-HtmlReport {
     Write-Log "HTML report saved: $ReportPath" -Level Success
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # SECTION 5: SCRIPT GENERATION (Phase 2)
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
-# Progress tracker preamble — embedded into generated scripts for resume support
+# Progress tracker preamble -- embedded into generated scripts for resume support
 function Get-ProgressTrackerCode {
     param([string]$ScriptName)
     $trackerFile = "$ScriptName-progress.json"
     return @"
-# ═══════════════════════════════════════════════════════════════
-# PROGRESS TRACKER — Supports resume if interrupted
-# ═══════════════════════════════════════════════════════════════
+# ===============================================================
+# PROGRESS TRACKER -- Supports resume if interrupted
+# ===============================================================
 # A progress file ($trackerFile) tracks completed steps.
 # If you re-run this script, already-completed steps are skipped.
 # To start fresh, delete the progress file.
@@ -1959,7 +2337,7 @@ if (Test-Path `$script:ProgressFile) {
         `$loaded.PSObject.Properties | ForEach-Object { `$script:Progress[`$_.Name] = `$_.Value }
         `$done = @(`$script:Progress.Keys).Count
         Write-Host ""
-        Write-Host "  Resuming from previous run — `$done steps already completed." -ForegroundColor Cyan
+        Write-Host "  Resuming from previous run -- `$done steps already completed." -ForegroundColor Cyan
         Write-Host "  To start fresh, delete: $trackerFile" -ForegroundColor Gray
         Write-Host ""
     } catch {
@@ -1981,192 +2359,36 @@ function Test-StepDone {
 "@
 }
 
-function Get-InstallTrackerCode {
-    return @'
-# ═══════════════════════════════════════════════════════════════
-# INSTALL RESULT TRACKER
-# ═══════════════════════════════════════════════════════════════
-$script:InstallResults = [System.Collections.ArrayList]::new()
-
-function Add-InstallResult {
-    param(
-        [string]$Name,
-        [string]$Category,
-        [ValidateSet('Success','Failed','Skipped','Manual','AlreadyDone')]
-        [string]$Status,
-        [string]$Detail = ''
-    )
-    [void]$script:InstallResults.Add([PSCustomObject]@{
-        Name      = $Name
-        Category  = $Category
-        Status    = $Status
-        Detail    = $Detail
-        Timestamp = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
-    })
-}
-
-function Invoke-WingetInstall {
-    param(
-        [string]$Name,
-        [string]$Category,
-        [string]$StepId,
-        [string[]]$WingetArgs
-    )
-    if (Test-StepDone $StepId) {
-        Write-Host "  [SKIP] $Name — already installed" -ForegroundColor DarkGray
-        Add-InstallResult -Name $Name -Category $Category -Status 'AlreadyDone' -Detail 'Completed in previous run'
-        return
-    }
-    Write-Host "Installing: $Name" -ForegroundColor Yellow
-    & $script:WingetExe @WingetArgs 2>&1 | Out-Host
-    $exitCode = $LASTEXITCODE
-    if ($exitCode -eq 0) {
-        Save-Progress $StepId 'done'
-        Add-InstallResult -Name $Name -Category $Category -Status 'Success'
-    } elseif ($exitCode -eq -1978335189) {
-        # Already installed (0x8A150057)
-        Save-Progress $StepId 'done'
-        Add-InstallResult -Name $Name -Category $Category -Status 'Success' -Detail 'Already present on system'
-    } else {
-        Save-Progress $StepId 'failed'
-        Add-InstallResult -Name $Name -Category $Category -Status 'Failed' -Detail "winget exit code: $exitCode"
-    }
-}
-
-function Save-InstallReport {
-    $reportPath = Join-Path $PSScriptRoot 'install-report.html'
-    $total     = $script:InstallResults.Count
-    $success   = @($script:InstallResults | Where-Object Status -eq 'Success').Count
-    $failed    = @($script:InstallResults | Where-Object Status -eq 'Failed').Count
-    $skipped   = @($script:InstallResults | Where-Object Status -eq 'Skipped').Count
-    $manual    = @($script:InstallResults | Where-Object Status -eq 'Manual').Count
-    $already   = @($script:InstallResults | Where-Object Status -eq 'AlreadyDone').Count
-    $date      = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-    $hostname  = $env:COMPUTERNAME
-
-    $statusIcon = @{ Success = '&#10004;'; Failed = '&#10008;'; Skipped = '&#9899;'; Manual = '&#9888;'; AlreadyDone = '&#8635;' }
-    $statusColor = @{ Success = '#27ae60'; Failed = '#e74c3c'; Skipped = '#7f8c8d'; Manual = '#f39c12'; AlreadyDone = '#3498db' }
-
-    $rows = $script:InstallResults | ForEach-Object {
-        $icon = $statusIcon[$_.Status]
-        $color = $statusColor[$_.Status]
-        "      <tr><td style=`"color:$color;font-weight:bold`">$icon $($_.Status)</td><td>$($_.Name)</td><td>$($_.Category)</td><td>$($_.Detail)</td><td>$($_.Timestamp)</td></tr>"
-    }
-
-    $html = @"
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"><title>Install Report — $hostname</title>
-<style>
-  body { font-family: Segoe UI, Arial, sans-serif; margin: 2em; background: #f5f5f5; color: #333; }
-  h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: .3em; }
-  .summary { display: flex; gap: 1.5em; margin: 1.5em 0; flex-wrap: wrap; }
-  .card { background: #fff; padding: 1em 1.5em; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,.1); min-width: 120px; text-align: center; }
-  .card .num { font-size: 2em; font-weight: bold; }
-  .card .label { font-size: .85em; color: #666; }
-  .success .num { color: #27ae60; } .failed .num { color: #e74c3c; }
-  .skipped .num { color: #7f8c8d; } .manual .num { color: #f39c12; }
-  .already .num { color: #3498db; }
-  table { width: 100%; border-collapse: collapse; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.1); border-radius: 8px; overflow: hidden; margin-top: 1em; }
-  th { background: #2c3e50; color: #fff; padding: .75em 1em; text-align: left; }
-  td { padding: .6em 1em; border-bottom: 1px solid #eee; }
-  tr:hover { background: #f9f9f9; }
-  .filter-bar { margin: 1em 0; }
-  .filter-bar button { padding: .4em .8em; margin-right: .4em; border: 1px solid #ccc; border-radius: 4px; background: #fff; cursor: pointer; }
-  .filter-bar button.active { background: #3498db; color: #fff; border-color: #3498db; }
-</style>
-</head>
-<body>
-<h1>&#128230; Software Installation Report</h1>
-<p>Machine: <strong>$hostname</strong> &mdash; $date</p>
-<div class="summary">
-  <div class="card success"><div class="num">$success</div><div class="label">Successful</div></div>
-  <div class="card failed"><div class="num">$failed</div><div class="label">Failed</div></div>
-  <div class="card manual"><div class="num">$manual</div><div class="label">Manual</div></div>
-  <div class="card skipped"><div class="num">$skipped</div><div class="label">Skipped</div></div>
-  <div class="card already"><div class="num">$already</div><div class="label">Previous Run</div></div>
-</div>
-<div class="filter-bar">
-  <button class="active" onclick="filterRows('all')">All ($total)</button>
-  <button onclick="filterRows('Success')">&#10004; Success ($success)</button>
-  <button onclick="filterRows('Failed')">&#10008; Failed ($failed)</button>
-  <button onclick="filterRows('Manual')">&#9888; Manual ($manual)</button>
-  <button onclick="filterRows('Skipped')">&#9899; Skipped ($skipped)</button>
-  <button onclick="filterRows('AlreadyDone')">&#8635; Previous ($already)</button>
-</div>
-<table>
-  <thead><tr><th>Status</th><th>Software</th><th>Category</th><th>Details</th><th>Time</th></tr></thead>
-  <tbody>
-$($rows -join "`n")
-  </tbody>
-</table>
-<script>
-function filterRows(status) {
-  document.querySelectorAll('.filter-bar button').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
-  document.querySelectorAll('tbody tr').forEach(r => {
-    r.style.display = (status === 'all' || r.children[0].textContent.includes(status)) ? '' : 'none';
-  });
-}
-</script>
-</body></html>
-"@
-    $html | Set-Content -Path $reportPath -Encoding UTF8
-    return $reportPath
-}
-
-'@
-}
-
-function Get-InstallReportCode {
-    return @'
-Write-Host "`nSoftware installation complete!`n" -ForegroundColor Green
-
-# ═══════════════════════════════════════════════════════════════
-# INSTALLATION REPORT
-# ═══════════════════════════════════════════════════════════════
-$total     = $script:InstallResults.Count
-$success   = @($script:InstallResults | Where-Object Status -eq 'Success').Count
-$failed    = @($script:InstallResults | Where-Object Status -eq 'Failed').Count
-$skipped   = @($script:InstallResults | Where-Object Status -eq 'Skipped').Count
-$manual    = @($script:InstallResults | Where-Object Status -eq 'Manual').Count
-$already   = @($script:InstallResults | Where-Object Status -eq 'AlreadyDone').Count
-
-Write-Host "═══════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "  INSTALLATION SUMMARY" -ForegroundColor Cyan
-Write-Host "═══════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "  Total processed : $total" -ForegroundColor White
-Write-Host "  Successful      : $success" -ForegroundColor Green
-if ($failed -gt 0)  { Write-Host "  Failed          : $failed" -ForegroundColor Red }
-if ($manual -gt 0)  { Write-Host "  Manual needed   : $manual" -ForegroundColor Yellow }
-Write-Host "  Skipped (system): $skipped" -ForegroundColor DarkGray
-Write-Host "  Previous run    : $already" -ForegroundColor DarkCyan
-Write-Host "═══════════════════════════════════════════" -ForegroundColor Cyan
-
-if ($failed -gt 0) {
-    Write-Host "`n  Apps that FAILED (need manual install):" -ForegroundColor Red
-    $script:InstallResults | Where-Object Status -eq 'Failed' | ForEach-Object {
-        Write-Host "    [X] $($_.Name) — $($_.Detail)" -ForegroundColor Red
-    }
-}
-
-if ($manual -gt 0) {
-    Write-Host "`n  Apps needing MANUAL intervention:" -ForegroundColor Yellow
-    $script:InstallResults | Where-Object Status -eq 'Manual' | ForEach-Object {
-        Write-Host "    [!] $($_.Name) — $($_.Detail)" -ForegroundColor Yellow
-    }
-}
-
-# Save HTML report
-$reportPath = Save-InstallReport
-Write-Host "`n  Full report saved to: $reportPath" -ForegroundColor Cyan
-Write-Host "  Open it in a browser for a detailed interactive view.`n" -ForegroundColor Gray
-'@
-}
-
 function Write-InstallScript {
     param([string]$ScriptPath, $ScanData)
+
+    function Select-InstallableApps {
+        param($Apps)
+
+        # Skip noisy sub-components and helper entries that should not be installed directly.
+        $skipNamePattern = '^(Python\s+.*\s+(Add to Path|Core Interpreter|Development Libraries|Documentation|Executables|pip Bootstrap|Standard Library|Tcl/Tk Support|Test Suite)(\s*\(.*\))?|Microsoft Teams Meeting Add-in.*|Microsoft Teams VDI.*|Microsoft Teams SlimCoreVdi.*|App Installer|Microsoft Store|Store Experience Host|Get Help|Feedback Hub|Mail and Calendar|Movies\s*&\s*TV|MSN Weather|News|Paint|Phone Link|Quick Assist|Snipping Tool|Windows\s+(Calculator|Camera|Clock|Media Player|Notepad|Security|Sound Recorder|Web Experience Pack|Advanced Settings)|Xbox\s+.*|Widgets Platform Runtime|Cross Device Experience Host|Start Experiences App|WebP Image Extension|Web Media Extensions|HEIF Image Extension|AV1 Video Extension|MPEG-2 Video Extension|VP9 Video Extensions|Raw Image Extension|Speech Pack\s+.*|Ink\.Handwriting.*|WindowsAppRuntime\..*|WinAppRuntime\..*|Microsoft\.UI\.Xaml\..*)$'
+        $seenIds = @{}
+        $result = @()
+
+        foreach ($app in $Apps) {
+            $name = [string]$app.Name
+            $id = [string]$app.WingetId
+            if ([string]::IsNullOrWhiteSpace($id)) { continue }
+
+            # Ignore Store/MSIX identifiers and malformed IDs.
+            if ($id -match '^MSIX\\') { continue }
+            if ($id -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*\.[A-Za-z0-9][A-Za-z0-9._-]*$') { continue }
+            if ($name -match $skipNamePattern) { continue }
+
+            $idKey = $id.ToLowerInvariant()
+            if ($seenIds.ContainsKey($idKey)) { continue }
+
+            $seenIds[$idKey] = $true
+            $result += $app
+        }
+
+        return @($result | Sort-Object Name)
+    }
 
     $sb = [System.Text.StringBuilder]::new()
     [void]$sb.AppendLine('<#')
@@ -2178,410 +2400,112 @@ function Write-InstallScript {
     [void]$sb.AppendLine('    Requires: winget (built into Windows 10/11)')
     [void]$sb.AppendLine('#>')
     [void]$sb.AppendLine('')
-    [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
-    [void]$sb.AppendLine('# Resolve winget — works on any Windows 10/11 machine')
-    [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
-    [void]$sb.AppendLine('function Find-Winget {')
-    [void]$sb.AppendLine('    $cmd = Get-Command winget.exe -ErrorAction SilentlyContinue')
-    [void]$sb.AppendLine('    if ($cmd -and $cmd.Source -and (Test-Path $cmd.Source)) { return $cmd.Source }')
-    [void]$sb.AppendLine('    $alias = Join-Path $env:LOCALAPPDATA ''Microsoft\WindowsApps\winget.exe''')
-    [void]$sb.AppendLine('    if (Test-Path $alias) {')
-    [void]$sb.AppendLine('        try { $null = & $alias --version 2>$null; if ($LASTEXITCODE -eq 0) { return $alias } } catch { }')
-    [void]$sb.AppendLine('    }')
-    [void]$sb.AppendLine('    $explorerOwner = (Get-Process explorer -ErrorAction SilentlyContinue | Select-Object -First 1)')
-    [void]$sb.AppendLine('    if ($explorerOwner) {')
-    [void]$sb.AppendLine('        try {')
-    [void]$sb.AppendLine('            $sid = (Get-CimInstance Win32_Process -Filter "Name=''explorer.exe''" -ErrorAction SilentlyContinue |')
-    [void]$sb.AppendLine('                    Invoke-CimMethod -MethodName GetOwnerSid -ErrorAction SilentlyContinue).Sid')
-    [void]$sb.AppendLine('            if ($sid) {')
-    [void]$sb.AppendLine('                $profilePath = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\$sid" -ErrorAction SilentlyContinue).ProfileImagePath')
-    [void]$sb.AppendLine('                if ($profilePath) {')
-    [void]$sb.AppendLine('                    $userAlias = Join-Path $profilePath ''AppData\Local\Microsoft\WindowsApps\winget.exe''')
-    [void]$sb.AppendLine('                    if (Test-Path $userAlias) {')
-    [void]$sb.AppendLine('                        try { $null = & $userAlias --version 2>$null; if ($LASTEXITCODE -eq 0) { return $userAlias } } catch { }')
-    [void]$sb.AppendLine('                    }')
-    [void]$sb.AppendLine('                }')
-    [void]$sb.AppendLine('            }')
-    [void]$sb.AppendLine('        } catch { }')
-    [void]$sb.AppendLine('    }')
-    [void]$sb.AppendLine('    $packagePattern = Join-Path $env:ProgramFiles ''WindowsApps\Microsoft.DesktopAppInstaller_*_x64__8wekyb3d8bbwe\winget.exe''')
-    [void]$sb.AppendLine('    $found = Get-Item $packagePattern -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1')
-    [void]$sb.AppendLine('    if ($found) { return $found.FullName }')
-    [void]$sb.AppendLine('    $packagePattern2 = Join-Path $env:ProgramFiles ''WindowsApps\Microsoft.DesktopAppInstaller_*\winget.exe''')
-    [void]$sb.AppendLine('    $found2 = Get-Item $packagePattern2 -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1')
-    [void]$sb.AppendLine('    if ($found2) { return $found2.FullName }')
-    [void]$sb.AppendLine('    return $null')
-    [void]$sb.AppendLine('}')
-    [void]$sb.AppendLine('')
-    [void]$sb.AppendLine('$script:WingetExe = Find-Winget')
-    [void]$sb.AppendLine('if (-not $script:WingetExe) {')
-    [void]$sb.AppendLine('    Write-Host ""')
-    [void]$sb.AppendLine('    Write-Host "ERROR: winget is not installed on this machine." -ForegroundColor Red')
-    [void]$sb.AppendLine('    Write-Host ""')
-    [void]$sb.AppendLine('    Write-Host "To install winget, do ONE of the following:" -ForegroundColor Yellow')
-    [void]$sb.AppendLine('    Write-Host "  1. Open Microsoft Store > search ''App Installer'' > Install/Update" -ForegroundColor White')
-    [void]$sb.AppendLine('    Write-Host "  2. Run: Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe" -ForegroundColor White')
-    [void]$sb.AppendLine('    Write-Host "  3. Download from: https://aka.ms/getwinget" -ForegroundColor White')
-    [void]$sb.AppendLine('    Write-Host ""')
+    [void]$sb.AppendLine('# Ensure winget is available')
+    [void]$sb.AppendLine('if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {')
+    [void]$sb.AppendLine('    Write-Host "ERROR: winget is not available. Install App Installer from the Microsoft Store." -ForegroundColor Red')
     [void]$sb.AppendLine('    exit 1')
     [void]$sb.AppendLine('}')
-    [void]$sb.AppendLine('Write-Host "Using winget: $script:WingetExe" -ForegroundColor DarkGray')
     [void]$sb.AppendLine('')
 
     # Add progress tracker
     [void]$sb.AppendLine((Get-ProgressTrackerCode -ScriptName "install-software"))
 
-    # Add install result tracker and report generator
-    [void]$sb.AppendLine((Get-InstallTrackerCode))
-
-    # ── Exclude apps that come pre-installed on Windows 10/11 ──
-    # These are bundled with the OS, are framework/runtime dependencies, or are
-    # auto-deployed by IT/Intune.  They should not appear in the install script.
-    # Name patterns are matched case-insensitively.
-    $preInstalledPatterns = @(
-        # Edge sub-components
-        '^Microsoft Edge Game Assist$'
-        '^Microsoft Edge WebView2'
-        # Teams sub-components
-        '^Microsoft Teams Meeting Add-in'
-        '^Microsoft Teams SlimCore'
-        '^Microsoft Teams VDI'
-        # Windows built-in apps
-        '^Company Portal$'
-        '^Feedback Hub$'
-        '^Game Bar$'
-        '^Game Speech Window$'
-        '^Get Help$'
-        '^Microsoft Bing$'
-        '^Microsoft OneDrive$'
-        '^Microsoft People$'
-        '^Microsoft Photos$'
-        '^Microsoft Sticky Notes$'
-        '^Microsoft Store$'
-        '^Microsoft To Do$'
-        '^Paint$'
-        '^Phone Link$'
-        '^Quick Assist$'
-        '^Remote Help$'
-        '^Snipping Tool$'
-        '^Windows Advanced Settings$'
-        '^Windows App$'
-        '^Windows Calculator$'
-        '^Windows Camera$'
-        '^Windows Clock$'
-        '^Windows Media Player$'
-        '^Windows Notepad$'
-        '^Windows Security$'
-        '^Windows Sound Recorder$'
-        '^Windows Web Experience Pack$'
-        # Microsoft 365 / Office internal components
-        '^Microsoft 365 companion'
-        '^Microsoft 365 Copilot$'
-        '^Microsoft Engagement Framework$'
-        '^Microsoft\.Office\.ActionsServer$'
-        '^NarratorExtension'
-        '^OfficePushNotificationsUtility$'
-        '^WritingAssistant$'
-        '^Local AI Manager for Microsoft 365$'
-        # Runtime frameworks & dependencies (auto-installed as needed)
-        '^Microsoft\.UI\.Xaml\.'
-        '^WinAppRuntime\.'
-        '^WindowsAppRuntime\.'
-        '^Widgets Platform Runtime$'
-        '^Store Experience Host$'
-        '^Start Experiences App$'
-        '^Cross Device Experience Host$'
-        # System components / codecs that ship with Windows
-        '^AVC Encoder Video Extension$'
-        '^Ink\.Handwriting'
-        '^Speech Pack'
-        '^Xbox Game Bar Plugin$'
-        '^Xbox Identity Provider$'
-        '^Xbox TCUI$'
-        # More Windows built-in apps
-        '^App Installer$'
-        '^Mail and Calendar$'
-        '^Movies & TV$'
-        '^MSN Weather$'
-        '^News$'
-        '^OneNote Virtual Printer$'
-        '^Outlook for Windows$'
-        '^PC Manager$'
-        '^Power Automate$'
-        # Python Launcher is installed with Python itself
-        '^Python Launcher$'
-        # OEM / hardware-specific (won't match new hardware)
-        '^HP Audio Control$'
-        '^Intel.*Graphics'
-        '^ThunderboltTM'
-        '^EpmShellExtension$'
-        # Adobe / app internal sub-components
-        '^Reader Notification Client$'
-        # PWA bookmarks (not real installs)
-        '^YouTube$'
-        # Not available in winget
-        '^AI Toolkit Inference Agent$'
-    )
-    $allSoftware = @($ScanData.Software | Where-Object {
-        $name = $_.Name
-        $dominated = $false
-        foreach ($p in $preInstalledPatterns) {
-            if ($name -match $p) { $dominated = $true; break }
-        }
-        -not $dominated
-    })
-
     # Pre-compute software lists so counts are available for the header
-    $devSoftware = @($allSoftware | Where-Object { $_.IsDev -and $_.WingetId })
-    $genSoftware = @($allSoftware | Where-Object { $_.IsGeneral -and $_.WingetId })
-    $otherWithWinget = @($allSoftware | Where-Object { -not $_.IsDev -and -not $_.IsGeneral -and $_.WingetId })
+    $devSoftware = Select-InstallableApps -Apps @($ScanData.Software | Where-Object { $_.IsDev })
+    $genSoftware = Select-InstallableApps -Apps @($ScanData.Software | Where-Object { $_.IsGeneral })
+    $otherWithWinget = Select-InstallableApps -Apps @($ScanData.Software | Where-Object { -not $_.IsDev -and -not $_.IsGeneral })
 
-    # Bulk install header with instructions
-    [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
-    [void]$sb.AppendLine('# HOW TO USE THIS SCRIPT')
-    [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
+    # Generate array-based format (clean, one app per line, easy to comment out)
+    [void]$sb.AppendLine('# ===============================================================')
+    [void]$sb.AppendLine('# SOFTWARE LISTS -- Edit these to control what gets installed')
+    [void]$sb.AppendLine('# ===============================================================')
     [void]$sb.AppendLine('#')
-    [void]$sb.AppendLine('# File to edit: Install-Software.ps1  (this file)')
+    [void]$sb.AppendLine('# To SKIP an app: add # at the start of its line.')
+    [void]$sb.AppendLine('# To RESTORE it: remove the #.')
+    [void]$sb.AppendLine('# One app per line -- "DisplayName" = "WingetId"')
     [void]$sb.AppendLine('#')
-    [void]$sb.AppendLine("# This script installs software in multiple sections:")
-    [void]$sb.AppendLine('#')
-    [void]$sb.AppendLine("#   Section 1: DEVELOPER SOFTWARE  ($($devSoftware.Count) apps) — Git, VS Code, Node, Python...")
-    [void]$sb.AppendLine("#   Section 2: GENERAL SOFTWARE    ($($genSoftware.Count) apps) — Chrome, Zoom, Slack...")
-    [void]$sb.AppendLine("#   Section 3: OTHER SOFTWARE      ($($otherWithWinget.Count) apps) — Everything else detected")
-    [void]$sb.AppendLine('#   Section 4+: BROWSER EXTENSIONS — Edge, Chrome, Firefox (opens store pages)')
-    [void]$sb.AppendLine('#')
-    [void]$sb.AppendLine('# ALL sections are ACTIVE by default. Each asks for confirmation.')
-    [void]$sb.AppendLine('#')
-    [void]$sb.AppendLine('# ➤ TO SKIP AN ENTIRE SECTION:')
-    [void]$sb.AppendLine('#   When prompted, type ''n'' and press Enter to skip that section.')
-    [void]$sb.AppendLine('#')
-    [void]$sb.AppendLine('# ➤ TO SKIP INDIVIDUAL APPS YOU DON''T NEED:')
-    [void]$sb.AppendLine('#   1. Press Ctrl+C to stop this script')
-    [void]$sb.AppendLine('#   2. Open this file (Install-Software.ps1) in any text editor')
-    [void]$sb.AppendLine('#   3. Press Ctrl+F and search for the section, e.g. "SECTION 1"')
-    [void]$sb.AppendLine('#   4. Find the app''s "Invoke-WingetInstall" line and add # at the start')
-    [void]$sb.AppendLine('#   5. Save the file and re-run the script — it resumes where it left off')
-    [void]$sb.AppendLine('#')
-    [void]$sb.AppendLine('#   Example — to skip Roblox, change this:')
-    [void]$sb.AppendLine('#     Invoke-WingetInstall -Name ''Roblox'' ...')
-    [void]$sb.AppendLine('#   to this:')
-    [void]$sb.AppendLine('#     # Invoke-WingetInstall -Name ''Roblox'' ...')
-    [void]$sb.AppendLine('#')
-    [void]$sb.AppendLine('# ➤ ALREADY-INSTALLED APPS ARE SKIPPED AUTOMATICALLY.')
-    [void]$sb.AppendLine('#   The script tracks progress. If you re-run it, completed steps are skipped.')
-    [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
+    [void]$sb.AppendLine('# ===============================================================')
     [void]$sb.AppendLine('')
 
-    # Developer software
+    # Helper to emit an ordered hashtable of apps
+    function Emit-AppArray {
+        param([string]$VarName, [string]$Label, $Apps)
+        [void]$sb.AppendLine("# -- $Label --")
+        [void]$sb.AppendLine("`$$VarName = [ordered]@{")
+        foreach ($s in $Apps) {
+            $safeName = $s.Name -replace "'", "''"
+            $safeId = $s.WingetId -replace "'", "''"
+            $padding = ' ' * [Math]::Max(1, 44 - $safeName.Length)
+            [void]$sb.AppendLine("    '$safeName'$padding= '$safeId'")
+        }
+        [void]$sb.AppendLine('}')
+        [void]$sb.AppendLine('')
+    }
+
+    if ($devSoftware.Count -gt 0) { Emit-AppArray -VarName 'devApps' -Label 'DEVELOPER SOFTWARE' -Apps $devSoftware }
+    if ($genSoftware.Count -gt 0) { Emit-AppArray -VarName 'generalApps' -Label 'GENERAL SOFTWARE' -Apps $genSoftware }
+    if ($otherWithWinget.Count -gt 0) { Emit-AppArray -VarName 'otherApps' -Label 'OTHER SOFTWARE' -Apps $otherWithWinget }
+
+    # Emit the reusable install function
+    [void]$sb.AppendLine('# ===============================================================')
+    [void]$sb.AppendLine('# INSTALL FUNCTION -- processes one section''s app list')
+    [void]$sb.AppendLine('# ===============================================================')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('function Install-AppSection {')
+    [void]$sb.AppendLine('    param(')
+    [void]$sb.AppendLine('        [string]$SectionName,               # e.g. "Developer Software"')
+    [void]$sb.AppendLine('        [string]$StepPrefix,                # e.g. "dev" -- used for progress tracking')
+    [void]$sb.AppendLine('        [System.Collections.Specialized.OrderedDictionary]$Apps')
+    [void]$sb.AppendLine('    )')
+    [void]$sb.AppendLine('    if ($Apps.Count -eq 0) { return }')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('    Write-Host "`n  -- $SectionName ($($Apps.Count) apps) --" -ForegroundColor Cyan')
+    [void]$sb.AppendLine('    $i = 0')
+    [void]$sb.AppendLine('    foreach ($name in $Apps.Keys) {')
+    [void]$sb.AppendLine('        $i++')
+    [void]$sb.AppendLine('        Write-Host "    $name  ->  $($Apps[$name])" -ForegroundColor White')
+    [void]$sb.AppendLine('    }')
+    [void]$sb.AppendLine('    Write-Host "  To skip specific apps: edit this script, comment out lines in the array above." -ForegroundColor DarkGray')
+    [void]$sb.AppendLine('    Write-Host ""')
+    [void]$sb.AppendLine('    $confirm = Read-Host "  Install $SectionName ($($Apps.Count) apps)? [Y/n]"')
+    [void]$sb.AppendLine('    if ($confirm -match ''^[nN]'') { return }')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('    $i = 0')
+    [void]$sb.AppendLine('    foreach ($name in $Apps.Keys) {')
+    [void]$sb.AppendLine('        $i++')
+    [void]$sb.AppendLine('        $stepId = "$StepPrefix-$($name -replace ''[^a-zA-Z0-9]'', '''')"')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('        if (Test-StepDone $stepId) {')
+    [void]$sb.AppendLine('            Write-Host "    [SKIP] $name -- already installed" -ForegroundColor DarkGray')
+    [void]$sb.AppendLine('            continue')
+    [void]$sb.AppendLine('        }')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('        Write-Host "  Installing [$i/$($Apps.Count)]: $name" -ForegroundColor Yellow')
+    [void]$sb.AppendLine('        winget install --id $Apps[$name] --accept-package-agreements --accept-source-agreements')
+    [void]$sb.AppendLine('        Save-Progress $stepId ''done''')
+    [void]$sb.AppendLine('    }')
+    [void]$sb.AppendLine('    Write-Host "  $SectionName complete." -ForegroundColor Green')
+    [void]$sb.AppendLine('}')
+    [void]$sb.AppendLine('')
+
+    # Emit the function calls
+    [void]$sb.AppendLine('# -- Install sections --')
     if ($devSoftware.Count -gt 0) {
-        [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
-        [void]$sb.AppendLine("# SECTION 1: DEVELOPER SOFTWARE ($($devSoftware.Count) apps)")
-        [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
-        [void]$sb.AppendLine('')
-        [void]$sb.AppendLine('Write-Host "`n── Installing Developer Software ──`n" -ForegroundColor Cyan')
-        [void]$sb.AppendLine("Write-Host `"  $($devSoftware.Count) apps to install. Review the list below.`" -ForegroundColor Gray")
-        [void]$sb.AppendLine('Write-Host "  To skip any app: press Ctrl+C, open Install-Software.ps1," -ForegroundColor Gray')
-        [void]$sb.AppendLine('Write-Host "  search for ''SECTION 1'', add # before that app''s line, save, and re-run." -ForegroundColor Gray')
-        $exampleDev = if ($devSoftware.Count -gt 2) { $devSoftware[2].Name } else { $devSoftware[0].Name }
-        [void]$sb.AppendLine("Write-Host `"  Example:  # Invoke-WingetInstall -Name '$exampleDev' ...  (skipped)`" -ForegroundColor DarkGray")
-        [void]$sb.AppendLine('Write-Host ""')
-        foreach ($s in $devSoftware) {
-            [void]$sb.AppendLine("Write-Host `"    - $($s.Name)`" -ForegroundColor White")
-        }
-        [void]$sb.AppendLine('Write-Host ""')
-        [void]$sb.AppendLine('$confirm = Read-Host "Install these developer apps? [Y/n]"')
-        [void]$sb.AppendLine('if ($confirm -notmatch ''^[nN]'') {')
-        $idx = 0
-        foreach ($s in $devSoftware) {
-            $idx++
-            $stepId = "dev-$idx"
-            $safeName = $s.Name -replace "'", "''"
-            [void]$sb.AppendLine("    Invoke-WingetInstall -Name '$safeName' -Category 'Developer' -StepId '$stepId' -WingetArgs @('install','--id','$($s.WingetId)','--accept-package-agreements','--accept-source-agreements')")
-            [void]$sb.AppendLine('')
-        }
-        [void]$sb.AppendLine('}')
-        [void]$sb.AppendLine('')
+        [void]$sb.AppendLine("Install-AppSection -SectionName 'Developer Software' -StepPrefix 'dev'     -Apps `$devApps")
     }
-
-    # General software
     if ($genSoftware.Count -gt 0) {
-        [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
-        [void]$sb.AppendLine("# SECTION 2: GENERAL SOFTWARE ($($genSoftware.Count) apps)")
-        [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
-        [void]$sb.AppendLine('')
-        [void]$sb.AppendLine('Write-Host "`n── Installing General Software ──`n" -ForegroundColor Cyan')
-        [void]$sb.AppendLine("Write-Host `"  $($genSoftware.Count) apps to install. Review the list below.`" -ForegroundColor Gray")
-        [void]$sb.AppendLine('Write-Host "  To skip any app: press Ctrl+C, open Install-Software.ps1," -ForegroundColor Gray')
-        [void]$sb.AppendLine('Write-Host "  search for ''SECTION 2'', add # before that app''s line, save, and re-run." -ForegroundColor Gray')
-        $exampleGen = if ($genSoftware.Count -gt 2) { $genSoftware[2].Name } else { $genSoftware[0].Name }
-        [void]$sb.AppendLine("Write-Host `"  Example:  # Invoke-WingetInstall -Name '$exampleGen' ...  (skipped)`" -ForegroundColor DarkGray")
-        [void]$sb.AppendLine('Write-Host ""')
-        foreach ($s in $genSoftware) {
-            [void]$sb.AppendLine("Write-Host `"    - $($s.Name)`" -ForegroundColor White")
-        }
-        [void]$sb.AppendLine('Write-Host ""')
-        [void]$sb.AppendLine('$confirm = Read-Host "Install these general apps? [Y/n]"')
-        [void]$sb.AppendLine('if ($confirm -notmatch ''^[nN]'') {')
-        $idx = 0
-        foreach ($s in $genSoftware) {
-            $idx++
-            $stepId = "gen-$idx"
-            $safeName = $s.Name -replace "'", "''"
-            [void]$sb.AppendLine("    Invoke-WingetInstall -Name '$safeName' -Category 'General' -StepId '$stepId' -WingetArgs @('install','--id','$($s.WingetId)','--accept-package-agreements','--accept-source-agreements')")
-            [void]$sb.AppendLine('')
-        }
-        [void]$sb.AppendLine('}')
-        [void]$sb.AppendLine('')
+        [void]$sb.AppendLine("Install-AppSection -SectionName 'General Software'   -StepPrefix 'gen'     -Apps `$generalApps")
     }
-
-    # Other software
     if ($otherWithWinget.Count -gt 0) {
-        [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
-        [void]$sb.AppendLine("# SECTION 3: OTHER SOFTWARE ($($otherWithWinget.Count) apps)")
-        [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
-        [void]$sb.AppendLine('')
-        [void]$sb.AppendLine('Write-Host "`n── Installing Other Software ──`n" -ForegroundColor Cyan')
-        [void]$sb.AppendLine("Write-Host `"  $($otherWithWinget.Count) apps to install. Review the list below.`" -ForegroundColor Gray")
-        [void]$sb.AppendLine('Write-Host "  To skip any app: press Ctrl+C, open Install-Software.ps1," -ForegroundColor Gray')
-        [void]$sb.AppendLine('Write-Host "  search for ''SECTION 3'', add # before that app''s line, save, and re-run." -ForegroundColor Gray')
-        $exampleOther = if ($otherWithWinget.Count -gt 2) { $otherWithWinget[2].Name } else { $otherWithWinget[0].Name }
-        [void]$sb.AppendLine("Write-Host `"  Example:  # Invoke-WingetInstall -Name '$exampleOther' ...  (skipped)`" -ForegroundColor DarkGray")
-        [void]$sb.AppendLine('Write-Host ""')
-        foreach ($s in $otherWithWinget) {
-            [void]$sb.AppendLine("Write-Host `"    - $($s.Name)`" -ForegroundColor White")
-        }
-        [void]$sb.AppendLine('Write-Host ""')
-        [void]$sb.AppendLine('$confirm = Read-Host "Install these other apps? [Y/n]"')
-        [void]$sb.AppendLine('if ($confirm -notmatch ''^[nN]'') {')
-        $idx = 0
-        foreach ($s in $otherWithWinget) {
-            $idx++
-            $stepId = "other-$idx"
-            $safeName = $s.Name -replace "'", "''"
-            [void]$sb.AppendLine("    Invoke-WingetInstall -Name '$safeName' -Category 'Other' -StepId '$stepId' -WingetArgs @('install','--id','$($s.WingetId)','--accept-package-agreements','--accept-source-agreements')")
-            [void]$sb.AppendLine('')
-        }
-        [void]$sb.AppendLine('}')
-        [void]$sb.AppendLine('')
+        [void]$sb.AppendLine("Install-AppSection -SectionName 'Other Software'     -StepPrefix 'other'   -Apps `$otherApps")
     }
-
-    # ── Browser Extensions (Edge, Chrome, Firefox) ──
-    $browserBuiltInIds = @(
-        'cgjgjfacjflmgphhhepmbhhbgjieaecn'  # Edge Unminification Extension
-        'danmflhegmadnfikaeoakocddjockglk'  # Microsoft 365 Copilot extension
-        'jmjflgjpcpepeafmmgdpfkogkghcpiha'  # Edge relevant text changes
-        'kfbdpdaobnofkbopebjglnaadopfikhh'  # Edge DevTools Enhancements
-        'nmmhkkegccagdldgiimedpiccmgmieda'  # Chrome Web Store Payments
-        'pbamjmanmbobnmhmlagmkmaihjgphkla'  # Microsoft 365 Copilot (Chrome)
-    )
-    # Store URL map: Source field → base URL
-    $storeUrls = @{
-        'ChromeWebStore' = 'https://chromewebstore.google.com/detail/'
-        'EdgeAddons'     = 'https://microsoftedge.microsoft.com/addons/detail/'
-        'Unknown'        = 'https://chromewebstore.google.com/detail/'   # default fallback
-    }
-    $browserConfigs = @(
-        @{ Key = 'Edge';    DefaultStore = 'EdgeAddons';      StoreLabel = 'browser extension stores'; InstallAction = "install"; Prefix = 'edge' }
-        @{ Key = 'Chrome';  DefaultStore = 'ChromeWebStore';  StoreLabel = 'Chrome Web Store';         InstallAction = "click 'Add to Chrome'"; Prefix = 'chrome' }
-        @{ Key = 'Firefox'; DefaultStore = 'FirefoxAddons';   StoreLabel = 'Firefox Add-ons';          InstallAction = "click 'Add to Firefox'"; Prefix = 'firefox' }
-    )
-    # Firefox has a different URL scheme
-    $storeUrls['FirefoxAddons'] = 'https://addons.mozilla.org/en-US/firefox/addon/'
-
-    $sectionNum = 4
-    foreach ($bc in $browserConfigs) {
-        $bData = $ScanData.Configs.BrowserExtensions.Browsers.($bc.Key)
-        if (-not $bData -or -not $bData.Found) { continue }
-
-        $allExts = @($bData.Extensions | Where-Object { $_.Id -notin $browserBuiltInIds })
-        $namedExts   = @($allExts | Where-Object { $_.Name -ne $_.Id } | Sort-Object Name -Unique)
-        $unnamedExts = @($allExts | Where-Object { $_.Name -eq $_.Id } | Sort-Object Id)
-
-        if ($namedExts.Count -eq 0) { continue }
-
-        [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
-        [void]$sb.AppendLine("# SECTION $($sectionNum): $($bc.Key.ToUpper()) BROWSER EXTENSIONS ($($namedExts.Count) extensions)")
-        [void]$sb.AppendLine("# These were detected on your old machine's $($bc.Key) browser.")
-        [void]$sb.AppendLine("# Each extension's Store page opens for you to $($bc.InstallAction).")
-        [void]$sb.AppendLine("# To skip any: add # before its entry in the `$$($bc.Prefix)Extensions array.")
-        [void]$sb.AppendLine('#')
-        if ($unnamedExts.Count -gt 0) {
-            [void]$sb.AppendLine("# $($unnamedExts.Count) unnamed extensions (ID-only, likely built-in) are commented")
-            [void]$sb.AppendLine('# out at the bottom of the list. Uncomment any you need.')
-        }
-        [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
-        [void]$sb.AppendLine('')
-        [void]$sb.AppendLine("Write-Host `"`n── $($bc.Key) Browser Extensions ──`n`" -ForegroundColor Cyan")
-        [void]$sb.AppendLine("Write-Host `"  $($namedExts.Count) extensions to restore from $($bc.StoreLabel).`" -ForegroundColor Gray")
-        [void]$sb.AppendLine('Write-Host "  Each page opens the correct store — install from there." -ForegroundColor Gray')
-        [void]$sb.AppendLine('Write-Host "  Opens in batches of 5." -ForegroundColor Gray')
-        [void]$sb.AppendLine("Write-Host `"  To skip any: press Ctrl+C, open Install-Software.ps1,`" -ForegroundColor Gray")
-        [void]$sb.AppendLine("Write-Host `"  search for 'SECTION $sectionNum', add # before that extension's line, save, and re-run.`" -ForegroundColor Gray")
-        $exampleExt = ($namedExts | Select-Object -First 1).Name -replace "'", "''"
-        [void]$sb.AppendLine("Write-Host `"  Example:  # @{ Name = '$exampleExt' ...  (skipped)`" -ForegroundColor DarkGray")
-        [void]$sb.AppendLine('Write-Host ""')
-        foreach ($ext in $namedExts) {
-            $safeName = $ext.Name -replace '"', '`"'
-            [void]$sb.AppendLine("Write-Host `"    - $safeName`" -ForegroundColor White")
-        }
-        [void]$sb.AppendLine('Write-Host ""')
-        [void]$sb.AppendLine("`$confirm = Read-Host `"Open $($bc.Key) extension store pages for install? [Y/n]`"")
-        [void]$sb.AppendLine('if ($confirm -notmatch ''^[nN]'') {')
-        [void]$sb.AppendLine("    `$$($bc.Prefix)Extensions = @(")
-        foreach ($ext in $namedExts) {
-            $safeName = $ext.Name -replace "'", "''"
-            # Determine the correct store URL for this extension
-            $source = if ($ext.Source) { $ext.Source } else { $bc.DefaultStore }
-            $extStoreUrl = if ($storeUrls.ContainsKey($source)) { $storeUrls[$source] } else { $storeUrls[$bc.DefaultStore] }
-            [void]$sb.AppendLine("        @{ Name = '$safeName'; Id = '$($ext.Id)'; Url = '$extStoreUrl$($ext.Id)' }")
-        }
-        if ($unnamedExts.Count -gt 0) {
-            [void]$sb.AppendLine("        # ── Unnamed extensions (ID-only, likely built-in $($bc.Key) components) ──")
-            [void]$sb.AppendLine('        # Uncomment any you recognise after checking the store page.')
-            foreach ($ext in $unnamedExts) {
-                $source = if ($ext.Source) { $ext.Source } else { $bc.DefaultStore }
-                $extStoreUrl = if ($storeUrls.ContainsKey($source)) { $storeUrls[$source] } else { $storeUrls[$bc.DefaultStore] }
-                [void]$sb.AppendLine("        # @{ Name = '$($ext.Id)'; Id = '$($ext.Id)'; Url = '$extStoreUrl$($ext.Id)' }")
-            }
-        }
-        [void]$sb.AppendLine('    )')
-        [void]$sb.AppendLine('')
-        [void]$sb.AppendLine('    $batchSize = 5')
-        [void]$sb.AppendLine("    for (`$i = 0; `$i -lt `$$($bc.Prefix)Extensions.Count; `$i += `$batchSize) {")
-        [void]$sb.AppendLine("        `$end = [Math]::Min(`$i + `$batchSize - 1, `$$($bc.Prefix)Extensions.Count - 1)")
-        [void]$sb.AppendLine("        `$batch = `$$($bc.Prefix)Extensions[`$i..`$end]")
-        [void]$sb.AppendLine('        $batchNum = [Math]::Floor($i / $batchSize) + 1')
-        [void]$sb.AppendLine("        `$totalBatches = [Math]::Ceiling(`$$($bc.Prefix)Extensions.Count / `$batchSize)")
-        [void]$sb.AppendLine('        Write-Host "`n  Batch $batchNum of $totalBatches — opening $($batch.Count) extension pages..." -ForegroundColor Yellow')
-        [void]$sb.AppendLine('        foreach ($ext in $batch) {')
-        [void]$sb.AppendLine("            `$stepId = `"$($bc.Prefix)-`$(`$ext.Id)`"")
-        [void]$sb.AppendLine('            if (Test-StepDone $stepId) {')
-        [void]$sb.AppendLine('                Write-Host "    [SKIP] $($ext.Name) — already opened" -ForegroundColor DarkGray')
-        [void]$sb.AppendLine("                Add-InstallResult -Name `$ext.Name -Category '$($bc.Key) Extension' -Status 'AlreadyDone' -Detail 'Opened in previous run'")
-        [void]$sb.AppendLine('                continue')
-        [void]$sb.AppendLine('            }')
-        [void]$sb.AppendLine('            Write-Host "    Opening: $($ext.Name)" -ForegroundColor White')
-        [void]$sb.AppendLine('            Start-Process $ext.Url')
-        [void]$sb.AppendLine('            Save-Progress $stepId ''done''')
-        [void]$sb.AppendLine("            Add-InstallResult -Name `$ext.Name -Category '$($bc.Key) Extension' -Status 'Manual' -Detail `$ext.Url")
-        [void]$sb.AppendLine('        }')
-        [void]$sb.AppendLine("        if (`$end -lt (`$$($bc.Prefix)Extensions.Count - 1)) {")
-        [void]$sb.AppendLine('            Write-Host ""')
-        [void]$sb.AppendLine('            Read-Host "    Press Enter for next batch (or Ctrl+C to stop)"')
-        [void]$sb.AppendLine('        }')
-        [void]$sb.AppendLine('    }')
-        [void]$sb.AppendLine('    Write-Host ""')
-        [void]$sb.AppendLine('    Write-Host "  All extension pages opened. Install from each store page." -ForegroundColor Green')
-        [void]$sb.AppendLine('}')
-        [void]$sb.AppendLine('')
-        $sectionNum++
-    }
+    [void]$sb.AppendLine('')
 
     # Post-install config
-    [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
+    [void]$sb.AppendLine('# ===============================================================')
     [void]$sb.AppendLine('# POST-INSTALL: Rebuild project dependencies')
     [void]$sb.AppendLine('# After transferring your project folders, run these in each project:')
-    [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
+    [void]$sb.AppendLine('# ===============================================================')
     [void]$sb.AppendLine('')
     [void]$sb.AppendLine('# Node.js projects:   npm install')
     [void]$sb.AppendLine('# Python projects:    pip install -r requirements.txt')
@@ -2589,14 +2513,7 @@ function Write-InstallScript {
     [void]$sb.AppendLine('# .NET:               dotnet restore')
     [void]$sb.AppendLine('# Gradle:             gradle build')
     [void]$sb.AppendLine('')
-    [void]$sb.AppendLine((Get-InstallReportCode))
-    [void]$sb.AppendLine('')
-    [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
-    [void]$sb.AppendLine('# MAC USERS: Use Homebrew instead of winget')
-    [void]$sb.AppendLine('# Install Homebrew: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"')
-    [void]$sb.AppendLine('# Then: brew install git node python docker')
-    [void]$sb.AppendLine('# And:  brew install --cask visual-studio-code google-chrome firefox')
-    [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
+    [void]$sb.AppendLine('Write-Host "`nSoftware installation complete! Review any errors above.`n" -ForegroundColor Green')
 
     Set-Content -Path $ScriptPath -Value $sb.ToString() -Encoding UTF8
     Write-Log "Install script saved: $ScriptPath" -Level Success
@@ -2613,7 +2530,7 @@ function Write-TransferScript {
     [void]$sb.AppendLine("    Generated from scan of $($ScanData.ComputerName) on $($ScanData.ScanDate).")
     [void]$sb.AppendLine('    Supports 3 transfer methods: Network (robocopy), USB drive, or Cloud (OneDrive).')
     [void]$sb.AppendLine('    Run this script on the OLD laptop to push data to the new one.')
-    [void]$sb.AppendLine('    REVIEW EACH SECTION — modify paths as needed for your setup.')
+    [void]$sb.AppendLine('    REVIEW EACH SECTION -- modify paths as needed for your setup.')
     [void]$sb.AppendLine('#>')
     [void]$sb.AppendLine('')
     [void]$sb.AppendLine('[CmdletBinding()] param()')
@@ -2622,12 +2539,12 @@ function Write-TransferScript {
     # Add progress tracker
     [void]$sb.AppendLine((Get-ProgressTrackerCode -ScriptName "transfer-data"))
 
-    [void]$sb.AppendLine('# ── Choose transfer method ──')
-    [void]$sb.AppendLine('Write-Host "`n  ── Transfer Method ──`n" -ForegroundColor Cyan')
+    [void]$sb.AppendLine('# -- Choose transfer method --')
+    [void]$sb.AppendLine('Write-Host "`n  -- Transfer Method --`n" -ForegroundColor Cyan')
     [void]$sb.AppendLine('Write-Host "  Compare your options:" -ForegroundColor Gray')
     [void]$sb.AppendLine('Write-Host ""')
     [void]$sb.AppendLine('Write-Host "   Method                  Speed          Time for 40 GB   You need" -ForegroundColor DarkGray')
-    [void]$sb.AppendLine('Write-Host "   ──────────────────────   ────────────   ──────────────   ─────────────────────────" -ForegroundColor DarkGray')
+    [void]$sb.AppendLine('Write-Host "   ----------------------   ------------   --------------   -------------------------" -ForegroundColor DarkGray')
     [void]$sb.AppendLine('Write-Host "   USB-C to USB-C cable    Up to 10 Gbps  ~30 seconds      USB-C port on both laptops" -ForegroundColor White')
     [void]$sb.AppendLine('Write-Host "   WiFi 6 / 6E (5-6 GHz)  80-150 MB/s    4-8 minutes      Both on same 5/6 GHz WiFi" -ForegroundColor White')
     [void]$sb.AppendLine('Write-Host "   WiFi 5 (5 GHz)         30-60 MB/s     11-22 minutes    Both on same 5 GHz WiFi" -ForegroundColor White')
@@ -2636,8 +2553,8 @@ function Write-TransferScript {
     [void]$sb.AppendLine('Write-Host "   Cloud (OneDrive etc.)   Depends on ISP Varies           Internet upload + download" -ForegroundColor DarkGray')
     [void]$sb.AppendLine('Write-Host ""')
     [void]$sb.AppendLine('Write-Host "  USB-C / THUNDERBOLT TIPS:" -ForegroundColor DarkGray')
-    [void]$sb.AppendLine('Write-Host "    - Look for the ⚡ (lightning bolt) icon next to your USB-C port" -ForegroundColor DarkGray')
-    [void]$sb.AppendLine('Write-Host "    - ⚡ = Thunderbolt (fastest, 40-80 Gbps) — use this port if available" -ForegroundColor DarkGray')
+    [void]$sb.AppendLine('Write-Host "    - Look for the [!] (lightning bolt) icon next to your USB-C port" -ForegroundColor DarkGray')
+    [void]$sb.AppendLine('Write-Host "    - [!] = Thunderbolt (fastest, 40-80 Gbps) -- use this port if available" -ForegroundColor DarkGray')
     [void]$sb.AppendLine('Write-Host "    - Any USB-C port works, but Thunderbolt is the best choice" -ForegroundColor DarkGray')
     [void]$sb.AppendLine('Write-Host "    - Most charging cables do NOT support PC-to-PC transfer" -ForegroundColor DarkGray')
     [void]$sb.AppendLine('Write-Host "    - You need a USB-C data cable or Thunderbolt cable (or use WiFi instead)" -ForegroundColor DarkGray')
@@ -2648,7 +2565,7 @@ function Write-TransferScript {
     [void]$sb.AppendLine('Write-Host "  [2] USB / External Drive (copy to drive, plug into new laptop)"')
     [void]$sb.AppendLine('Write-Host "  [3] Cloud (OneDrive / Google Drive sync folder)"')
     [void]$sb.AppendLine('Write-Host ""')
-    [void]$sb.AppendLine('Write-Host "  TIP: USB-C cable and WiFi both use option [1] — they appear as" -ForegroundColor DarkGray')
+    [void]$sb.AppendLine('Write-Host "  TIP: USB-C cable and WiFi both use option [1] -- they appear as" -ForegroundColor DarkGray')
     [void]$sb.AppendLine('Write-Host "  a network share either way. Plug in the cable and share a folder." -ForegroundColor DarkGray')
     [void]$sb.AppendLine('Write-Host ""')
     [void]$sb.AppendLine('$method = Read-Host "  Enter choice [1-3]"')
@@ -2656,7 +2573,7 @@ function Write-TransferScript {
     [void]$sb.AppendLine('switch ($method) {')
     [void]$sb.AppendLine('    ''1'' {')
     [void]$sb.AppendLine('        Write-Host ""')
-    [void]$sb.AppendLine('        Write-Host "  ── Network Transfer Setup ──" -ForegroundColor Cyan')
+    [void]$sb.AppendLine('        Write-Host "  -- Network Transfer Setup --" -ForegroundColor Cyan')
     [void]$sb.AppendLine('        Write-Host ""')
     [void]$sb.AppendLine('        Write-Host "  SPEED TIP:" -ForegroundColor Yellow')
     [void]$sb.AppendLine('        Write-Host "    If your WiFi has multiple bands (2.4 GHz / 5 GHz / 6 GHz)," -ForegroundColor Gray')
@@ -2667,8 +2584,8 @@ function Write-TransferScript {
     [void]$sb.AppendLine('        Write-Host "  Before continuing, set up the NEW laptop:" -ForegroundColor Yellow')
     [void]$sb.AppendLine('        Write-Host "    1. Both laptops must be on the SAME WiFi/network" -ForegroundColor Gray')
     [void]$sb.AppendLine('        Write-Host "    2. On the NEW laptop, create a folder (e.g., C:\Migration)" -ForegroundColor Gray')
-    [void]$sb.AppendLine('        Write-Host "    3. Right-click the folder → Properties → Sharing → Share" -ForegroundColor Gray')
-    [void]$sb.AppendLine('        Write-Host "    4. Add ''Everyone'' with Read/Write permission → Share" -ForegroundColor Gray')
+    [void]$sb.AppendLine('        Write-Host "    3. Right-click the folder -> Properties -> Sharing -> Share" -ForegroundColor Gray')
+    [void]$sb.AppendLine('        Write-Host "    4. Add ''Everyone'' with Read/Write permission -> Share" -ForegroundColor Gray')
     [void]$sb.AppendLine('        Write-Host "    5. Note the computer name: open CMD and type ''hostname''" -ForegroundColor Gray')
     [void]$sb.AppendLine('        Write-Host ""')
     [void]$sb.AppendLine('        $setupDone = Read-Host "  Is the shared folder ready on the new laptop? [Y/n]"')
@@ -2699,7 +2616,7 @@ function Write-TransferScript {
     [void]$sb.AppendLine('        $testOk = Read-Host "  Can you see the shared folder? [Y/n]"')
     [void]$sb.AppendLine('        if ($testOk -match ''^[nN]'') {')
     [void]$sb.AppendLine('            Write-Host "  Troubleshooting:" -ForegroundColor Yellow')
-    [void]$sb.AppendLine('            Write-Host "    - Ensure Network Discovery is ON: Settings → Network → Advanced sharing" -ForegroundColor Gray')
+    [void]$sb.AppendLine('            Write-Host "    - Ensure Network Discovery is ON: Settings -> Network -> Advanced sharing" -ForegroundColor Gray')
     [void]$sb.AppendLine('            Write-Host "    - Turn off ''Password protected sharing'' (or use new laptop credentials)" -ForegroundColor Gray')
     [void]$sb.AppendLine('            Write-Host "    - Check Windows Firewall: allow ''File and Printer Sharing''" -ForegroundColor Gray')
     [void]$sb.AppendLine('            Write-Host "    - Try: \\\\<IP address>\\$shareName instead of hostname" -ForegroundColor Gray')
@@ -2720,7 +2637,7 @@ function Write-TransferScript {
     [void]$sb.AppendLine('if (-not (Test-Path $destBase)) {')
     [void]$sb.AppendLine('    Write-Host "  Destination not reachable: $destBase" -ForegroundColor Red')
     [void]$sb.AppendLine('    Write-Host "  For network: ensure the folder is shared on the new laptop." -ForegroundColor Yellow')
-    [void]$sb.AppendLine('    Write-Host "  Right-click folder → Properties → Sharing → Share..." -ForegroundColor Gray')
+    [void]$sb.AppendLine('    Write-Host "  Right-click folder -> Properties -> Sharing -> Share..." -ForegroundColor Gray')
     [void]$sb.AppendLine('    exit 1')
     [void]$sb.AppendLine('}')
     [void]$sb.AppendLine('')
@@ -2732,7 +2649,7 @@ function Write-TransferScript {
     [void]$sb.AppendLine('#   /XD      = exclude directories')
     [void]$sb.AppendLine('#   /XF      = exclude files')
     [void]$sb.AppendLine('#   /NP      = no progress percentage (cleaner output)')
-    [void]$sb.AppendLine('#   /LOG+    = append to log file')
+    [void]$sb.AppendLine('#   /LOG+    = append to log file (one file per run, timestamped)')
     [void]$sb.AppendLine('')
 
     # Build exclude args
@@ -2741,7 +2658,7 @@ function Write-TransferScript {
     [void]$sb.AppendLine("`$commonXD = @($xdArgs)")
     [void]$sb.AppendLine("`$commonXF = @($xfArgs)")
     [void]$sb.AppendLine("`$roboFlags = @('/E', '/MT:16', '/R:1', '/W:1', '/NP')")
-    [void]$sb.AppendLine("`$logFile = Join-Path `$destBase 'transfer-log.txt'")
+    [void]$sb.AppendLine('`$logFile = Join-Path `$PSScriptRoot "transfer-log-`$(Get-Date -Format ''yyyy-MM-dd-HHmmss'').txt"')
     [void]$sb.AppendLine("`$script:TransferStart = Get-Date")
     [void]$sb.AppendLine('')
     [void]$sb.AppendLine('function Show-Elapsed {')
@@ -2758,10 +2675,10 @@ function Write-TransferScript {
     [void]$sb.AppendLine('    # Robocopy exit codes: 0-7 = success (with various copy stats), 8+ = error')
     [void]$sb.AppendLine('    $rc = $LASTEXITCODE')
     [void]$sb.AppendLine('    if ($rc -ge 8) {')
-    [void]$sb.AppendLine('        Write-Host "  ⚠ WARNING: $FolderName had errors (robocopy exit code $rc)" -ForegroundColor Red')
+    [void]$sb.AppendLine('        Write-Host "  [!] WARNING: $FolderName had errors (robocopy exit code $rc)" -ForegroundColor Red')
     [void]$sb.AppendLine('        Write-Host "    Some files may not have copied. Check transfer-log.txt for details." -ForegroundColor Yellow')
     [void]$sb.AppendLine('        Write-Host "    Common causes: file in use, access denied, network dropped." -ForegroundColor Gray')
-    [void]$sb.AppendLine('        Write-Host "    You can re-run this script — it will retry failed folders." -ForegroundColor Gray')
+    [void]$sb.AppendLine('        Write-Host "    You can re-run this script -- it will retry failed folders." -ForegroundColor Gray')
     [void]$sb.AppendLine('        $script:FailedFolders += $FolderName')
     [void]$sb.AppendLine('        return $false')
     [void]$sb.AppendLine('    }')
@@ -2769,54 +2686,54 @@ function Write-TransferScript {
     [void]$sb.AppendLine('}')
     [void]$sb.AppendLine('')
     [void]$sb.AppendLine('Write-Host ""')
-    [void]$sb.AppendLine('Write-Host "  ┌──────────────────────────────────────────────────────────┐" -ForegroundColor DarkGray')
-    [void]$sb.AppendLine('Write-Host "  │  SAFE TO STOP AT ANY TIME                               │" -ForegroundColor DarkGray')
-    [void]$sb.AppendLine('Write-Host "  │                                                          │" -ForegroundColor DarkGray')
-    [void]$sb.AppendLine('Write-Host "  │  Press Ctrl+C to stop. Nothing will be corrupted.        │" -ForegroundColor DarkGray')
-    [void]$sb.AppendLine('Write-Host "  │  Completed folders are saved. When you re-run this       │" -ForegroundColor DarkGray')
-    [void]$sb.AppendLine('Write-Host "  │  script, finished folders show [SKIP] automatically.     │" -ForegroundColor DarkGray')
-    [void]$sb.AppendLine('Write-Host "  │                                                          │" -ForegroundColor DarkGray')
-    [void]$sb.AppendLine('Write-Host "  │  Robocopy is resume-safe — even a partially copied       │" -ForegroundColor DarkGray')
-    [void]$sb.AppendLine('Write-Host "  │  folder will continue from where it left off.            │" -ForegroundColor DarkGray')
-    [void]$sb.AppendLine('Write-Host "  └──────────────────────────────────────────────────────────┘" -ForegroundColor DarkGray')
+    [void]$sb.AppendLine('Write-Host "  +----------------------------------------------------------+" -ForegroundColor DarkGray')
+    [void]$sb.AppendLine('Write-Host "  |  SAFE TO STOP AT ANY TIME                               |" -ForegroundColor DarkGray')
+    [void]$sb.AppendLine('Write-Host "  |                                                          |" -ForegroundColor DarkGray')
+    [void]$sb.AppendLine('Write-Host "  |  Press Ctrl+C to stop. Nothing will be corrupted.        |" -ForegroundColor DarkGray')
+    [void]$sb.AppendLine('Write-Host "  |  Completed folders are saved. When you re-run this       |" -ForegroundColor DarkGray')
+    [void]$sb.AppendLine('Write-Host "  |  script, finished folders show [SKIP] automatically.     |" -ForegroundColor DarkGray')
+    [void]$sb.AppendLine('Write-Host "  |                                                          |" -ForegroundColor DarkGray')
+    [void]$sb.AppendLine('Write-Host "  |  Robocopy is resume-safe -- even a partially copied       |" -ForegroundColor DarkGray')
+    [void]$sb.AppendLine('Write-Host "  |  folder will continue from where it left off.            |" -ForegroundColor DarkGray')
+    [void]$sb.AppendLine('Write-Host "  +----------------------------------------------------------+" -ForegroundColor DarkGray')
     [void]$sb.AppendLine('Write-Host ""')
     [void]$sb.AppendLine('')
-    [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
+    [void]$sb.AppendLine('# ===============================================================')
     [void]$sb.AppendLine('# FOLDER STRUCTURE')
-    [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
+    [void]$sb.AppendLine('# ===============================================================')
     [void]$sb.AppendLine('#')
     [void]$sb.AppendLine('# Files are organized by source drive to avoid name clashes:')
     [void]$sb.AppendLine('#   migration/C/Desktop, migration/C/Documents, migration/C/Projects')
     [void]$sb.AppendLine('#   migration/D/Automation, migration/D/Projects')
     [void]$sb.AppendLine('#   migration/E/Code, migration/E/Backups')
-    [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
+    [void]$sb.AppendLine('# ===============================================================')
     [void]$sb.AppendLine('')
 
     # User profile folders (all on C:)
-    [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
+    [void]$sb.AppendLine('# ===============================================================')
     [void]$sb.AppendLine('# USER PROFILE FOLDERS (C:\Users)')
-    [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
+    [void]$sb.AppendLine('# ===============================================================')
     [void]$sb.AppendLine('')
 
     # Check for OneDrive-redirected folders and warn
     $oneDriveFolders = @($ScanData.UserFolders | Where-Object { $_.IsOneDrive })
     if ($oneDriveFolders.Count -gt 0) {
-        [void]$sb.AppendLine('# ── ONEDRIVE NOTICE ──')
+        [void]$sb.AppendLine('# -- ONEDRIVE NOTICE --')
         [void]$sb.AppendLine('Write-Host ""')
-        [void]$sb.AppendLine('Write-Host "  ┌──────────────────────────────────────────────────────────┐" -ForegroundColor Blue')
-        [void]$sb.AppendLine('Write-Host "  │  ONEDRIVE DETECTED                                      │" -ForegroundColor Blue')
-        [void]$sb.AppendLine('Write-Host "  ├──────────────────────────────────────────────────────────┤" -ForegroundColor Blue')
-        [void]$sb.AppendLine('Write-Host "  │  Some folders are synced to OneDrive (corporate or       │" -ForegroundColor Blue')
-        [void]$sb.AppendLine('Write-Host "  │  personal). These will sync automatically when you sign   │" -ForegroundColor Blue')
-        [void]$sb.AppendLine('Write-Host "  │  into OneDrive on the new laptop — no need to copy them. │" -ForegroundColor Blue')
-        [void]$sb.AppendLine('Write-Host "  │                                                          │" -ForegroundColor Blue')
-        [void]$sb.AppendLine('Write-Host "  │  OneDrive-synced folders detected:                       │" -ForegroundColor Blue')
+        [void]$sb.AppendLine('Write-Host "  +----------------------------------------------------------+" -ForegroundColor Blue')
+        [void]$sb.AppendLine('Write-Host "  |  ONEDRIVE DETECTED                                      |" -ForegroundColor Blue')
+        [void]$sb.AppendLine('Write-Host "  +----------------------------------------------------------+" -ForegroundColor Blue')
+        [void]$sb.AppendLine('Write-Host "  |  Some folders are synced to OneDrive (corporate or       |" -ForegroundColor Blue')
+        [void]$sb.AppendLine('Write-Host "  |  personal). These will sync automatically when you sign   |" -ForegroundColor Blue')
+        [void]$sb.AppendLine('Write-Host "  |  into OneDrive on the new laptop -- no need to copy them. |" -ForegroundColor Blue')
+        [void]$sb.AppendLine('Write-Host "  |                                                          |" -ForegroundColor Blue')
+        [void]$sb.AppendLine('Write-Host "  |  OneDrive-synced folders detected:                       |" -ForegroundColor Blue')
         foreach ($odf in $oneDriveFolders) {
-            [void]$sb.AppendLine("Write-Host `"  │    $($odf.Name) → $($odf.Path)`" -ForegroundColor DarkCyan")
+            [void]$sb.AppendLine(('Write-Host "  |    {0} -> {1}" -ForegroundColor DarkCyan' -f $odf.Name, $odf.Path))
         }
-        [void]$sb.AppendLine('Write-Host "  │                                                          │" -ForegroundColor Blue')
-        [void]$sb.AppendLine('Write-Host "  │  You can SKIP these — or copy them as a backup.          │" -ForegroundColor Blue')
-        [void]$sb.AppendLine('Write-Host "  └──────────────────────────────────────────────────────────┘" -ForegroundColor Blue')
+        [void]$sb.AppendLine('Write-Host "  |                                                          |" -ForegroundColor Blue')
+        [void]$sb.AppendLine('Write-Host "  |  You can SKIP these -- or copy them as a backup.          |" -ForegroundColor Blue')
+        [void]$sb.AppendLine('Write-Host "  +----------------------------------------------------------+" -ForegroundColor Blue')
         [void]$sb.AppendLine('Write-Host ""')
         [void]$sb.AppendLine('')
     }
@@ -2827,31 +2744,31 @@ function Write-TransferScript {
         $folderIdx++
         $safeName = $f.Name -replace '[^a-zA-Z0-9]', ''
         $stepId = "folder-$safeName"
-        $oneDriveTag = if ($f.IsOneDrive) { " [ONEDRIVE — syncs automatically]" } else { "" }
-        [void]$sb.AppendLine("# $($f.Name): $($f.FileCount) files, $($f.SizeText)$oneDriveTag")
-        [void]$sb.AppendLine("if (Test-StepDone '$stepId') { Write-Host `"  [SKIP] $($f.Name) — already transferred`" -ForegroundColor DarkGray }")
+        $oneDriveTag = if ($f.IsOneDrive) { " [ONEDRIVE -- syncs automatically]" } else { "" }
+        [void]$sb.AppendLine(('# {0}: {1} files, {2}{3}' -f $f.Name, $f.FileCount, $f.SizeText, $oneDriveTag))
+        [void]$sb.AppendLine(('if (Test-StepDone ''{0}'') {{ Write-Host "  [SKIP] {1} -- already transferred" -ForegroundColor DarkGray }}' -f $stepId, $f.Name))
         [void]$sb.AppendLine("else {")
         if ($f.IsOneDrive) {
-            [void]$sb.AppendLine("Write-Host `"  ☁ $($f.Name) is synced to OneDrive — it will sync automatically on the new laptop.`" -ForegroundColor Blue")
-            [void]$sb.AppendLine("`$confirm$safeName = Read-Host `"  Copy $($f.Name) anyway as backup ($($f.SizeText))? [y/N]`"")
-            [void]$sb.AppendLine("if (`$confirm$safeName -match '^[yY]') {")
+            [void]$sb.AppendLine(('Write-Host "  [cloud] {0} is synced to OneDrive -- it will sync automatically on the new laptop." -ForegroundColor Blue' -f $f.Name))
+            [void]$sb.AppendLine(('`$confirm{0} = Read-Host "  Copy {1} anyway as backup ({2})? [y/N]"' -f $safeName, $f.Name, $f.SizeText))
+            [void]$sb.AppendLine(('if (`$confirm{0} -match ''^[yY]'') {{' -f $safeName))
         } else {
-            [void]$sb.AppendLine("`$confirm$safeName = Read-Host `"Transfer $($f.Name) ($($f.SizeText))? [Y/n]`"")
-            [void]$sb.AppendLine("if (`$confirm$safeName -notmatch '^[nN]') {")
+            [void]$sb.AppendLine(('`$confirm{0} = Read-Host "Transfer {1} ({2})? [Y/n]"' -f $safeName, $f.Name, $f.SizeText))
+            [void]$sb.AppendLine(('if (`$confirm{0} -notmatch ''^[nN]'') {{' -f $safeName))
         }
-        [void]$sb.AppendLine("    Write-Host `"  Transferring $($f.Name)...`" -ForegroundColor Yellow")
+        [void]$sb.AppendLine(('    Write-Host "  Transferring {0}..." -ForegroundColor Yellow' -f $f.Name))
         [void]$sb.AppendLine("    `$stepStart = Get-Date")
-        [void]$sb.AppendLine("    robocopy `"$($f.Path)`" `"`$destBase\C\$($f.Name)`" `$roboFlags /XD `$commonXD /XF `$commonXF /LOG+:`$logFile")
-        [void]$sb.AppendLine("    if (Test-RobocopyResult '$($f.Name)') {")
-        [void]$sb.AppendLine("        Save-Progress '$stepId' 'done'")
-        [void]$sb.AppendLine("        Write-Host `"  $($f.Name) done in `$(Show-Elapsed `$stepStart)`" -ForegroundColor Green")
+        [void]$sb.AppendLine(('    robocopy "{0}" "`$destBase\C\{1}" `$roboFlags /XD `$commonXD /XF `$commonXF /LOG+:`$logFile' -f $f.Path, $f.Name))
+        [void]$sb.AppendLine(('    if (Test-RobocopyResult ''{0}'') {{' -f $f.Name))
+        [void]$sb.AppendLine(('        Save-Progress ''{0}'' ''done''' -f $stepId))
+        [void]$sb.AppendLine(('        Write-Host "  {0} done in `$(Show-Elapsed `$stepStart)" -ForegroundColor Green' -f $f.Name))
         [void]$sb.AppendLine("    }")
         [void]$sb.AppendLine("}")
         [void]$sb.AppendLine("}")  # close else block
         [void]$sb.AppendLine('')
     }
 
-    # Custom data folders — C: drive per-folder, other drives grouped
+    # Custom data folders -- C: drive per-folder, other drives grouped
     if ($ScanData.CustomFolders.Count -gt 0) {
         # Group folders by drive
         $driveGroups = @{}
@@ -2861,123 +2778,95 @@ function Write-TransferScript {
             $driveGroups[$drv] += $f
         }
 
-        # ── C: Drive — batch confirmation like other drives (comment out lines to skip) ──
+        # ===============================================================
+        # Generate arrays + reusable function (much shorter output)
+        # ===============================================================
+        [void]$sb.AppendLine('# ===============================================================')
+        [void]$sb.AppendLine('# FOLDER LISTS -- Edit these to control what gets transferred')
+        [void]$sb.AppendLine('# ===============================================================')
+        [void]$sb.AppendLine('#')
+        [void]$sb.AppendLine('# To SKIP a folder: add # at the start of its line.')
+        [void]$sb.AppendLine('# To RESTORE it: remove the #.')
+        [void]$sb.AppendLine('# One folder per line -- full source path so you know exactly what it is.')
+        [void]$sb.AppendLine('#')
+        [void]$sb.AppendLine('# ===============================================================')
+        [void]$sb.AppendLine('')
+
+        # Emit other drives first (D, E, etc.), then C custom -- order: non-C sorted, then C
+        $otherDrives = $driveGroups.Keys | Where-Object { $_ -ne 'C' } | Sort-Object
+        $driveOrder = @($otherDrives)
         if ($driveGroups.ContainsKey('C')) {
-            $cFolders = $driveGroups['C']
-            [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
-            [void]$sb.AppendLine("# C: DRIVE — CUSTOM FOLDERS ($($cFolders.Count) found)")
-            [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
-            [void]$sb.AppendLine('#')
-            [void]$sb.AppendLine('# These are non-system folders found on C:\.')
-            [void]$sb.AppendLine('# To skip a specific folder, comment out its robocopy line.')
-            [void]$sb.AppendLine('#')
-            [void]$sb.AppendLine('# ALREADY EXCLUDED (never copied):')
-            [void]$sb.AppendLine('#   Windows, Program Files, Program Files (x86), ProgramData,')
-            [void]$sb.AppendLine('#   Users (profile folders are handled separately above),')
-            [void]$sb.AppendLine('#   $Recycle.Bin, Recovery, System Volume Information, PerfLogs')
-            [void]$sb.AppendLine('#')
-            [void]$sb.AppendLine("# Folders that will be copied (comment out any you DON'T want):")
-            foreach ($f in $cFolders) {
-                [void]$sb.AppendLine("#   $($f.Name) ($($f.SubDirs) subdirs, $($f.TopFiles) top files)")
-            }
-            [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
-            [void]$sb.AppendLine('')
-            [void]$sb.AppendLine('Write-Host "`n── C: Drive Custom Folders ──`n" -ForegroundColor Cyan')
-            [void]$sb.AppendLine('Write-Host "  System folders (Windows, Program Files, Users) are excluded." -ForegroundColor DarkGray')
-            [void]$sb.AppendLine('Write-Host "  Only your custom folders are shown below.`n" -ForegroundColor DarkGray')
-            [void]$sb.AppendLine("")
-            [void]$sb.AppendLine("Write-Host `"  C: Drive — $($cFolders.Count) custom folders found:`" -ForegroundColor Cyan")
-            foreach ($f in $cFolders) {
-                [void]$sb.AppendLine("Write-Host `"    $($f.Name)`" -ForegroundColor White")
-            }
-            [void]$sb.AppendLine("Write-Host `"  To skip a folder: press Ctrl+C, open Transfer-Data.ps1,`" -ForegroundColor DarkGray")
-            [void]$sb.AppendLine("Write-Host `"  search for 'C: Drive Custom Folders', add # before that folder's robocopy block, save, and re-run.`" -ForegroundColor DarkGray")
-            $exampleCFolder = if ($cFolders.Count -gt 0) { $cFolders[-1].Name } else { 'FolderName' }
-            [void]$sb.AppendLine("Write-Host `"  Example:  # robocopy `"C:\$exampleCFolder`" ...  (skipped)`" -ForegroundColor DarkGray")
-            [void]$sb.AppendLine("`$confirmDriveC = Read-Host `"  Transfer C: drive custom folders ($($cFolders.Count) folders)? [Y/n]`"")
-            [void]$sb.AppendLine("if (`$confirmDriveC -notmatch '^[nN]') {")
+            $driveOrder += 'C'
+        }
 
-            foreach ($f in $cFolders) {
-                $safeName = "C_$($f.Name)" -replace '[^a-zA-Z0-9_]', ''
-                $stepId = "folder-C-$safeName"
-                [void]$sb.AppendLine("    if (Test-StepDone '$stepId') { Write-Host `"    [SKIP] $($f.Name) — already transferred`" -ForegroundColor DarkGray }")
-                [void]$sb.AppendLine("    else {")
-                [void]$sb.AppendLine("        Write-Host `"  Transferring C:\$($f.Name)...`" -ForegroundColor Yellow")
-                [void]$sb.AppendLine("        `$stepStart = Get-Date")
-                [void]$sb.AppendLine("        robocopy `"$($f.Path)`" `"`$destBase\C\$($f.Name)`" `$roboFlags /XD `$commonXD /XF `$commonXF /LOG+:`$logFile")
-                [void]$sb.AppendLine("        if (Test-RobocopyResult 'C:\$($f.Name)') {")
-                [void]$sb.AppendLine("            Write-Host `"    done in `$(Show-Elapsed `$stepStart)`" -ForegroundColor DarkGray")
-                [void]$sb.AppendLine("            Save-Progress '$stepId' 'done'")
-                [void]$sb.AppendLine("        }")
-                [void]$sb.AppendLine("    }")
-            }
+        foreach ($drv in $driveOrder) {
+            $folders = $driveGroups[$drv]
+            $label = if ($drv -eq 'C') { 'C: custom' } else { "$($drv):" }
+            $varName = "folders$($drv -replace '[^a-zA-Z0-9]', '')"
 
-            [void]$sb.AppendLine("    Write-Host `"  C: drive custom folders transfer complete.`" -ForegroundColor Green")
-            [void]$sb.AppendLine("}")
+            [void]$sb.AppendLine("# -- $label Drive folders --")
+            [void]$sb.AppendLine("`$$varName = @(")
+            foreach ($f in $folders) {
+                $padding = ' ' * [Math]::Max(1, 44 - $f.Path.Length)
+                [void]$sb.AppendLine("    '$($f.Path)'$padding# $($f.SubDirs) subdirs, $($f.TopFiles) files")
+            }
+            [void]$sb.AppendLine(')')
             [void]$sb.AppendLine('')
         }
 
-        # ── Other Drives (D:, E:, etc.) — grouped per drive, per-folder progress ──
-        $otherDrives = $driveGroups.Keys | Where-Object { $_ -ne 'C' } | Sort-Object
-        if ($otherDrives) {
-            [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
-            [void]$sb.AppendLine('# OTHER DRIVES — one confirmation per drive')
-            [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
-            [void]$sb.AppendLine('#')
-            [void]$sb.AppendLine('# Non-C drives are transferred per drive. To skip a specific')
-            [void]$sb.AppendLine('# folder, comment out its robocopy line below before running.')
-            [void]$sb.AppendLine('#')
-            [void]$sb.AppendLine('# Progress is tracked per folder — if interrupted, re-run and')
-            [void]$sb.AppendLine('# completed folders will be skipped automatically.')
-            [void]$sb.AppendLine('# ═══════════════════════════════════════════════════════════════')
-            [void]$sb.AppendLine('')
+        # Emit the reusable transfer function
+        [void]$sb.AppendLine('# ===============================================================')
+        [void]$sb.AppendLine('# TRANSFER FUNCTION -- processes one drive''s folder list')
+        [void]$sb.AppendLine('# ===============================================================')
+        [void]$sb.AppendLine('')
+        [void]$sb.AppendLine('function Transfer-DriveFolders {')
+        [void]$sb.AppendLine('    param(')
+        [void]$sb.AppendLine('        [string]$DriveLabel,      # Display name, e.g. "D:" or "C: custom"')
+        [void]$sb.AppendLine('        [string[]]$Folders,       # Array of full source paths')
+        [void]$sb.AppendLine('        [string]$DestDrive        # Subfolder under $destBase, e.g. "D", "C", "Temp"')
+        [void]$sb.AppendLine('    )')
+        [void]$sb.AppendLine('    if ($Folders.Count -eq 0) { return }')
+        [void]$sb.AppendLine('')
+        [void]$sb.AppendLine('    Write-Host "`n  $DriveLabel -- $($Folders.Count) folders:" -ForegroundColor Cyan')
+        [void]$sb.AppendLine('    foreach ($f in $Folders) { Write-Host "    $(Split-Path $f -Leaf)  <- $f" -ForegroundColor White }')
+        [void]$sb.AppendLine('    Write-Host "  To skip specific folders: edit this script, comment out lines in the array above." -ForegroundColor DarkGray')
+        [void]$sb.AppendLine('    $confirm = Read-Host "  Transfer $DriveLabel ($($Folders.Count) folders)? [Y/n]"')
+        [void]$sb.AppendLine('    if ($confirm -match ''^[nN]'') { return }')
+        [void]$sb.AppendLine('')
+        [void]$sb.AppendLine('    foreach ($srcPath in $Folders) {')
+        [void]$sb.AppendLine('        $folderName = Split-Path $srcPath -Leaf')
+        [void]$sb.AppendLine('        $safeName = $folderName -replace ''[^a-zA-Z0-9_]'', ''''')
+        [void]$sb.AppendLine('        $stepId = "folder-${DestDrive}_${safeName}"')
+        [void]$sb.AppendLine('')
+        [void]$sb.AppendLine('        if (Test-StepDone $stepId) {')
+        [void]$sb.AppendLine('            Write-Host "    [SKIP] $folderName -- already transferred" -ForegroundColor DarkGray')
+        [void]$sb.AppendLine('            continue')
+        [void]$sb.AppendLine('        }')
+        [void]$sb.AppendLine('')
+        [void]$sb.AppendLine('        Write-Host "  Transferring $srcPath..." -ForegroundColor Yellow')
+        [void]$sb.AppendLine('        $stepStart = Get-Date')
+        [void]$sb.AppendLine('        robocopy "$srcPath" "$destBase\$DestDrive\$folderName" $roboFlags /XD $commonXD /XF $commonXF /LOG+:$logFile')
+        [void]$sb.AppendLine('        if (Test-RobocopyResult $srcPath) {')
+        [void]$sb.AppendLine('            Write-Host "    done in $(Show-Elapsed $stepStart)" -ForegroundColor DarkGray')
+        [void]$sb.AppendLine('            Save-Progress $stepId ''done''')
+        [void]$sb.AppendLine('        }')
+        [void]$sb.AppendLine('    }')
+        [void]$sb.AppendLine('    Write-Host "  $DriveLabel transfer complete." -ForegroundColor Green')
+        [void]$sb.AppendLine('}')
+        [void]$sb.AppendLine('')
 
-            foreach ($drv in $otherDrives) {
-                $folders = $driveGroups[$drv]
-                [void]$sb.AppendLine("# ── Drive $($drv): — $($folders.Count) folders ──")
-                [void]$sb.AppendLine("# Folders that will be copied (comment out any you DON'T want):")
-                foreach ($f in $folders) {
-                    [void]$sb.AppendLine("#   $($f.Name) ($($f.SubDirs) subdirs, $($f.TopFiles) top files)")
-                }
-                [void]$sb.AppendLine("")
-
-                # Check if ALL folders on this drive are already done
-                [void]$sb.AppendLine("Write-Host `"`n  Drive $($drv): — $($folders.Count) folders found:`" -ForegroundColor Cyan")
-                foreach ($f in $folders) {
-                    [void]$sb.AppendLine("Write-Host `"    $($f.Name)`" -ForegroundColor White")
-                }
-                [void]$sb.AppendLine("Write-Host `"  To skip a folder: press Ctrl+C, open Transfer-Data.ps1,`" -ForegroundColor DarkGray")
-                [void]$sb.AppendLine("Write-Host `"  search for 'Drive $($drv):', add # before that folder's robocopy block, save, and re-run.`" -ForegroundColor DarkGray")
-                $exampleFolder = if ($folders.Count -gt 2) { $folders[2].Name } else { $folders[0].Name }
-                [void]$sb.AppendLine("Write-Host `"  Example:  # robocopy `"$($drv):\$exampleFolder`" ...  (skipped)`" -ForegroundColor DarkGray")
-                [void]$sb.AppendLine("`$confirmDrive$drv = Read-Host `"  Transfer $($drv): drive ($($folders.Count) folders)? [Y/n]`"")
-                [void]$sb.AppendLine("if (`$confirmDrive$drv -notmatch '^[nN]') {")
-
-                foreach ($f in $folders) {
-                    $safeName = "$($f.Drive)_$($f.Name)" -replace '[^a-zA-Z0-9_]', ''
-                    $stepId = "folder-$safeName"
-                    [void]$sb.AppendLine("    if (Test-StepDone '$stepId') { Write-Host `"    [SKIP] $($f.Name) — already transferred`" -ForegroundColor DarkGray }")
-                    [void]$sb.AppendLine("    else {")
-                    [void]$sb.AppendLine("        Write-Host `"  Transferring $($drv):\$($f.Name)...`" -ForegroundColor Yellow")
-                    [void]$sb.AppendLine("        `$stepStart = Get-Date")
-                    [void]$sb.AppendLine("        robocopy `"$($f.Path)`" `"`$destBase\$($f.Drive)\$($f.Name)`" `$roboFlags /XD `$commonXD /XF `$commonXF /LOG+:`$logFile")
-                    [void]$sb.AppendLine("        if (Test-RobocopyResult '$($drv):\$($f.Name)') {")
-                    [void]$sb.AppendLine("            Write-Host `"    done in `$(Show-Elapsed `$stepStart)`" -ForegroundColor DarkGray")
-                    [void]$sb.AppendLine("            Save-Progress '$stepId' 'done'")
-                    [void]$sb.AppendLine("        }")
-                    [void]$sb.AppendLine("    }")
-                }
-
-                [void]$sb.AppendLine("    Write-Host `"  Drive $($drv): transfer complete.`" -ForegroundColor Green")
-                [void]$sb.AppendLine("}")
-                [void]$sb.AppendLine('')
-            }
+        # Emit the function calls -- other drives first, C custom last
+        [void]$sb.AppendLine('# -- Transfer drives (other drives first, then C custom) --')
+        foreach ($drv in $driveOrder) {
+            $label = if ($drv -eq 'C') { 'C: custom' } else { "$($drv): Drive" }
+            $varName = "folders$($drv -replace '[^a-zA-Z0-9]', '')"
+            [void]$sb.AppendLine(('Transfer-DriveFolders -DriveLabel ''{0}'' -Folders ${1} -DestDrive ''{2}''' -f $label, $varName, $drv))
         }
     }
 
     [void]$sb.AppendLine('Write-Host "`nData transfer complete in $(Show-Elapsed $script:TransferStart)! Check transfer-log.txt for details.`n" -ForegroundColor Green')
     [void]$sb.AppendLine('if ($script:FailedFolders.Count -gt 0) {')
-    [void]$sb.AppendLine('    Write-Host "  ⚠ Some folders had errors:" -ForegroundColor Red')
+    [void]$sb.AppendLine('    Write-Host "  [!] Some folders had errors:" -ForegroundColor Red')
     [void]$sb.AppendLine('    foreach ($ff in $script:FailedFolders) { Write-Host "    - $ff" -ForegroundColor Yellow }')
     [void]$sb.AppendLine('    Write-Host ""')
     [void]$sb.AppendLine('    Write-Host "  Re-run this script to retry failed folders." -ForegroundColor Yellow')
@@ -2989,13 +2878,493 @@ function Write-TransferScript {
     Write-Log "Transfer script saved: $ScriptPath" -Level Success
 }
 
-# Note: Restore-Configs.ps1 generation was removed — all config info is in the scan report.
+function Write-RestoreConfigsScript {
+    param([string]$ScriptPath, $ScanData)
+
+    $sb = [System.Text.StringBuilder]::new()
+    [void]$sb.AppendLine('<#')
+    [void]$sb.AppendLine('.SYNOPSIS')
+    [void]$sb.AppendLine('    Restore configurations on the new laptop. Generated by Migrate-Laptop.')
+    [void]$sb.AppendLine('.DESCRIPTION')
+    [void]$sb.AppendLine("    Generated from scan of $($ScanData.ComputerName) on $($ScanData.ScanDate).")
+    [void]$sb.AppendLine('    Run this on the NEW laptop after transferring data.')
+    [void]$sb.AppendLine('    Each section asks for confirmation before proceeding.')
+    [void]$sb.AppendLine('#>')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('$migrationDir = $PSScriptRoot  # Assumes this script is in the migration output folder')
+    [void]$sb.AppendLine('$userProfile = $env:USERPROFILE')
+    [void]$sb.AppendLine('')
+
+    # Add progress tracker
+    [void]$sb.AppendLine((Get-ProgressTrackerCode -ScriptName "restore-configs"))
+
+    # Git config
+    if ($ScanData.Configs.GitConfig.Found) {
+        [void]$sb.AppendLine('# -- Git Config --')
+        [void]$sb.AppendLine('if (Test-StepDone ''gitconfig'') { Write-Host "  [SKIP] .gitconfig - already restored" -ForegroundColor DarkGray }')
+        [void]$sb.AppendLine('else {')
+        [void]$sb.AppendLine('$confirm = Read-Host "Restore .gitconfig? [Y/n]"')
+        [void]$sb.AppendLine('if ($confirm -notmatch ''^[nN]'') {')
+        [void]$sb.AppendLine("    `$gitconfigContent = @'")
+        $gitContent = $ScanData.Configs.GitConfig.Content
+        if ($gitContent) {
+            foreach ($line in ($gitContent -split "`n")) {
+                $safeLine = $line.TrimEnd()
+                # Escape here-string terminator to prevent code injection in generated script
+                if ($safeLine -eq "'@") { $safeLine = " '@" }
+                [void]$sb.AppendLine($safeLine)
+            }
+        }
+        [void]$sb.AppendLine("'@")
+        [void]$sb.AppendLine('    $gitconfigContent | Set-Content -Path (Join-Path $userProfile ".gitconfig") -Encoding UTF8')
+        [void]$sb.AppendLine('    Write-Host "  .gitconfig restored." -ForegroundColor Green')
+        [void]$sb.AppendLine("    Save-Progress 'gitconfig' 'done'")
+        [void]$sb.AppendLine('}')
+        [void]$sb.AppendLine('}')  # close else
+        [void]$sb.AppendLine('')
+    }
+
+    # SSH keys reminder
+    if ($ScanData.Configs.SSHKeys.Found) {
+        [void]$sb.AppendLine('# -- SSH Keys --')
+        [void]$sb.AppendLine('# SECURITY: SSH keys should be transferred manually via USB drive.')
+        [void]$sb.AppendLine('# Copy the contents of your old .ssh folder to the new one:')
+        [void]$sb.AppendLine("#   Source: $($ScanData.Configs.SSHKeys.Path)")
+        [void]$sb.AppendLine('#   Destination: $env:USERPROFILE\.ssh')
+        [void]$sb.AppendLine('#')
+        [void]$sb.AppendLine('# After copying, fix permissions:')
+        [void]$sb.AppendLine('# icacls "$env:USERPROFILE\.ssh\id_rsa" /inheritance:r /grant:r "$($env:USERNAME):(R)"')
+        [void]$sb.AppendLine('# icacls "$env:USERPROFILE\.ssh\id_ed25519" /inheritance:r /grant:r "$($env:USERNAME):(R)"')
+        [void]$sb.AppendLine('#')
+        [void]$sb.AppendLine("# Files found: $($ScanData.Configs.SSHKeys.Files -join ', ')")
+        [void]$sb.AppendLine('')
+        [void]$sb.AppendLine('Write-Host "  SSH Keys: Copy manually from USB drive to $env:USERPROFILE\.ssh" -ForegroundColor Yellow')
+        [void]$sb.AppendLine('Write-Host "  Then run: icacls `"$env:USERPROFILE\.ssh\id_*`" /inheritance:r /grant:r `"$($env:USERNAME):(R)`"" -ForegroundColor Gray')
+        [void]$sb.AppendLine('Read-Host "  Press Enter after copying SSH keys (or skip)"')
+        [void]$sb.AppendLine('')
+    }
+
+    # VS Code extensions
+    if ($ScanData.Configs.VSCode.Extensions.Count -gt 0) {
+        [void]$sb.AppendLine('# -- VS Code Extensions --')
+        [void]$sb.AppendLine('if (Test-StepDone ''vscode-ext'') { Write-Host "  [SKIP] VS Code extensions - already installed" -ForegroundColor DarkGray }')
+        [void]$sb.AppendLine('else {')
+        [void]$sb.AppendLine(('`$confirm = Read-Host "Install VS Code extensions ({0} extensions)? [Y/n]"' -f $ScanData.Configs.VSCode.Extensions.Count))
+        [void]$sb.AppendLine('if ($confirm -notmatch ''^[nN]'') {')
+        [void]$sb.AppendLine('    if (Get-Command code -ErrorAction SilentlyContinue) {')
+        foreach ($ext in $ScanData.Configs.VSCode.Extensions) {
+            [void]$sb.AppendLine(('        code --install-extension "{0}"' -f $ext))
+        }
+        [void]$sb.AppendLine('        Write-Host "  VS Code extensions installed." -ForegroundColor Green')
+        [void]$sb.AppendLine("        Save-Progress 'vscode-ext' 'done'")
+        [void]$sb.AppendLine('    } else {')
+        [void]$sb.AppendLine('        Write-Host "  VS Code not found -- install it first, then re-run this section." -ForegroundColor Red')
+        [void]$sb.AppendLine('    }')
+        [void]$sb.AppendLine('}')
+        [void]$sb.AppendLine('}')  # close else
+        [void]$sb.AppendLine('')
+    }
+
+    if ($ScanData.Configs.VSCode.SettingsExist) {
+        [void]$sb.AppendLine('# -- VS Code Settings --')
+        [void]$sb.AppendLine('# Your VS Code settings.json was found at:')
+        [void]$sb.AppendLine("#   $($ScanData.Configs.VSCode.SettingsPath)")
+        [void]$sb.AppendLine('# Copy it to: %APPDATA%\Code\User\settings.json on the new machine')
+        [void]$sb.AppendLine('# Or better -- enable Settings Sync in VS Code: Ctrl+Shift+P -> "Settings Sync: Turn On"')
+        [void]$sb.AppendLine('')
+    }
+
+    # PowerShell profile
+    if ($ScanData.Configs.PSProfile.Found) {
+        [void]$sb.AppendLine('# -- PowerShell Profile --')
+        [void]$sb.AppendLine('if (Test-StepDone ''ps-profile'') { Write-Host "  [SKIP] PowerShell profile - already restored" -ForegroundColor DarkGray }')
+        [void]$sb.AppendLine('else {')
+        [void]$sb.AppendLine('$confirm = Read-Host "Restore PowerShell profile? [Y/n]"')
+        [void]$sb.AppendLine('if ($confirm -notmatch ''^[nN]'') {')
+        [void]$sb.AppendLine('    $profileDir = Split-Path $PROFILE -Parent')
+        [void]$sb.AppendLine('    if (-not (Test-Path $profileDir)) { New-Item -Path $profileDir -ItemType Directory -Force | Out-Null }')
+        [void]$sb.AppendLine("    `$profileContent = @'")
+        $psContent = $ScanData.Configs.PSProfile.Content
+        if ($psContent) {
+            foreach ($line in ($psContent -split "`n")) {
+                $safeLine = $line.TrimEnd()
+                # Escape here-string terminator to prevent code injection in generated script
+                if ($safeLine -eq "'@") { $safeLine = " '@" }
+                [void]$sb.AppendLine($safeLine)
+            }
+        }
+        [void]$sb.AppendLine("'@")
+        [void]$sb.AppendLine('    $profileContent | Set-Content -Path $PROFILE -Encoding UTF8')
+        [void]$sb.AppendLine('    Write-Host "  PowerShell profile restored at $PROFILE" -ForegroundColor Green')
+        [void]$sb.AppendLine("    Save-Progress 'ps-profile' 'done'")
+        [void]$sb.AppendLine('}')
+        [void]$sb.AppendLine('}')  # close else
+        [void]$sb.AppendLine('')
+    }
+
+    # Windows Terminal settings
+    if ($ScanData.Configs.WindowsTerminal.Found) {
+        [void]$sb.AppendLine('# -- Windows Terminal Settings --')
+        [void]$sb.AppendLine('# Your Windows Terminal settings were found at:')
+        [void]$sb.AppendLine("#   $($ScanData.Configs.WindowsTerminal.Path)")
+        [void]$sb.AppendLine('# Windows Terminal syncs via your Microsoft account if signed in.')
+        [void]$sb.AppendLine('# Otherwise, copy settings.json to the equivalent path on the new machine.')
+        [void]$sb.AppendLine('')
+    }
+
+    # Environment variables
+    if ($ScanData.Configs.EnvVars.Found) {
+        [void]$sb.AppendLine('# -- User Environment Variables --')
+        [void]$sb.AppendLine('if (Test-StepDone ''env-vars'') { Write-Host "  [SKIP] Environment variables - already restored" -ForegroundColor DarkGray }')
+        [void]$sb.AppendLine('else {')
+        [void]$sb.AppendLine('$confirm = Read-Host "Restore user environment variables? [Y/n]"')
+        [void]$sb.AppendLine('if ($confirm -notmatch ''^[nN]'') {')
+        foreach ($v in $ScanData.Configs.EnvVars.Variables) {
+            $safeName = $v.Name -replace "'", "''"
+            $safeValue = $v.Value -replace "'", "''"
+            [void]$sb.AppendLine("    Write-Host `"  Setting: $($v.Name)`" -ForegroundColor Gray")
+            [void]$sb.AppendLine("    [Environment]::SetEnvironmentVariable('$safeName', '$safeValue', 'User')")
+        }
+        [void]$sb.AppendLine('    Write-Host "  Environment variables restored." -ForegroundColor Green')
+        [void]$sb.AppendLine("    Save-Progress 'env-vars' 'done'")
+        [void]$sb.AppendLine('}')
+        [void]$sb.AppendLine('}')  # close else
+        [void]$sb.AppendLine('')
+    }
+
+    # Browser bookmarks
+    if ($ScanData.Configs.Bookmarks.Found) {
+        [void]$sb.AppendLine('# -- Browser Bookmarks --')
+        [void]$sb.AppendLine('# Bookmarks are best synced via browser sign-in:')
+        [void]$sb.AppendLine('#   Chrome: Sign in with Google account -> bookmarks sync automatically')
+        [void]$sb.AppendLine('#   Edge: Sign in with Microsoft account -> bookmarks sync automatically')
+        [void]$sb.AppendLine('#   Firefox: Sign in with Firefox account -> bookmarks sync automatically')
+        [void]$sb.AppendLine('# If not using sync, the bookmark files were backed up in the migration data.')
+        [void]$sb.AppendLine('')
+    }
+
+    # npm global packages
+    if ($ScanData.Configs.NpmGlobal.Found -and $ScanData.Configs.NpmGlobal.Packages.Count -gt 0) {
+        [void]$sb.AppendLine('# -- npm Global Packages --')
+        [void]$sb.AppendLine('if (Test-StepDone ''npm-global'') { Write-Host "  [SKIP] npm global packages - already installed" -ForegroundColor DarkGray }')
+        [void]$sb.AppendLine('else {')
+        [void]$sb.AppendLine('$confirm = Read-Host "Install npm global packages? [Y/n]"')
+        [void]$sb.AppendLine('if ($confirm -notmatch ''^[nN]'') {')
+        [void]$sb.AppendLine('    if (Get-Command npm -ErrorAction SilentlyContinue) {')
+        $npmNames = ($ScanData.Configs.NpmGlobal.Packages | ForEach-Object { $_.Name }) -join " "
+        [void]$sb.AppendLine("        npm --% install -g $npmNames")
+        [void]$sb.AppendLine('        Write-Host "  npm global packages installed." -ForegroundColor Green')
+        [void]$sb.AppendLine("        Save-Progress 'npm-global' 'done'")
+        [void]$sb.AppendLine('    } else {')
+        [void]$sb.AppendLine('        Write-Host "  npm not found -- install Node.js first." -ForegroundColor Red')
+        [void]$sb.AppendLine('    }')
+        [void]$sb.AppendLine('}')
+        [void]$sb.AppendLine('}')  # close else
+        [void]$sb.AppendLine('')
+    }
+
+    # pip packages
+    if ($ScanData.Configs.PipPackages.Found -and $ScanData.Configs.PipPackages.Packages.Count -gt 0) {
+        [void]$sb.AppendLine('# -- pip User Packages --')
+        [void]$sb.AppendLine('if (Test-StepDone ''pip-user'') { Write-Host "  [SKIP] pip packages - already installed" -ForegroundColor DarkGray }')
+        [void]$sb.AppendLine('else {')
+        [void]$sb.AppendLine('$confirm = Read-Host "Install pip user packages? [Y/n]"')
+        [void]$sb.AppendLine('if ($confirm -notmatch ''^[nN]'') {')
+        [void]$sb.AppendLine('    if (Get-Command pip -ErrorAction SilentlyContinue) {')
+        $pipNames = ($ScanData.Configs.PipPackages.Packages | ForEach-Object { $_.Name }) -join " "
+        [void]$sb.AppendLine("        pip install --user $pipNames")
+        [void]$sb.AppendLine('        Write-Host "  pip packages installed." -ForegroundColor Green')
+        [void]$sb.AppendLine("        Save-Progress 'pip-user' 'done'")
+        [void]$sb.AppendLine('    } else {')
+        [void]$sb.AppendLine('        Write-Host "  pip not found -- install Python first." -ForegroundColor Red')
+        [void]$sb.AppendLine('    }')
+        [void]$sb.AppendLine('}')
+        [void]$sb.AppendLine('}')  # close else
+        [void]$sb.AppendLine('')
+    }
+
+    # Hosts file
+    if ($ScanData.Configs.HostsFile.Found) {
+        [void]$sb.AppendLine('# -- Hosts File --')
+        [void]$sb.AppendLine('# Custom entries found in your hosts file (requires admin to restore):')
+        foreach ($entry in $ScanData.Configs.HostsFile.CustomEntries) {
+            [void]$sb.AppendLine("#   $entry")
+        }
+        [void]$sb.AppendLine('# To restore: Run PowerShell as Admin and add these lines to C:\Windows\System32\drivers\etc\hosts')
+        [void]$sb.AppendLine('')
+    }
+
+    # File Explorer preferences
+    try {
+        $feSettings = $ScanData.Configs.WindowsSettings.Settings.FileExplorer
+        if ($feSettings -and $feSettings.Found) {
+            [void]$sb.AppendLine('# -- File Explorer Preferences --')
+            [void]$sb.AppendLine('if (Test-StepDone ''file-explorer'') { Write-Host "  [SKIP] File Explorer settings - already restored" -ForegroundColor DarkGray }')
+            [void]$sb.AppendLine('else {')
+            [void]$sb.AppendLine('$confirm = Read-Host "Restore File Explorer preferences (show extensions, hidden files, etc.)? [Y/n]"')
+            [void]$sb.AppendLine('if ($confirm -notmatch ''^[nN]'') {')
+            [void]$sb.AppendLine('    $explorerKey = ''HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced''')
+            if ($feSettings.ShowExtensions) {
+                [void]$sb.AppendLine('    Set-ItemProperty -Path $explorerKey -Name HideFileExt -Value 0  # Show file extensions')
+            }
+            if ($feSettings.ShowHidden) {
+                [void]$sb.AppendLine('    Set-ItemProperty -Path $explorerKey -Name Hidden -Value 1  # Show hidden files')
+            }
+            if ($feSettings.LaunchTo -eq 'This PC') {
+                [void]$sb.AppendLine('    Set-ItemProperty -Path $explorerKey -Name LaunchTo -Value 1  # Open Explorer to This PC')
+            }
+            [void]$sb.AppendLine('    Write-Host "  File Explorer preferences restored." -ForegroundColor Green')
+            [void]$sb.AppendLine("    Save-Progress 'file-explorer' 'done'")
+            [void]$sb.AppendLine('}')
+            [void]$sb.AppendLine('}')  # close else
+            [void]$sb.AppendLine('')
+        }
+    } catch { }
+
+    [void]$sb.AppendLine('Write-Host "`nConfiguration restore complete!`n" -ForegroundColor Green')
+    [void]$sb.AppendLine('Write-Host "Next steps:" -ForegroundColor Cyan')
+    [void]$sb.AppendLine('Write-Host "  1. Open your projects and run dependency installs (npm install, pip install, etc.)"')
+    [void]$sb.AppendLine('Write-Host "  2. Test SSH: ssh -T git@github.com"')
+    [void]$sb.AppendLine('Write-Host "  3. Sign into browsers to sync bookmarks/passwords"')
+    [void]$sb.AppendLine('Write-Host "  4. Check VS Code extensions and settings"')
+    [void]$sb.AppendLine('Write-Host ""')
+
+    # App-specific config tips for detected software
+    $matchedTips = @()
+    foreach ($tip in $script:AppConfigTips) {
+        $matchedApps = @($ScanData.Software | Where-Object { $_.Name -imatch $tip.Pattern })
+        if ($matchedApps.Count -gt 0) {
+            $matchedTips += @{ App = $matchedApps[0].Name; Tip = $tip.Tip }
+        }
+    }
+    if ($matchedTips.Count -gt 0) {
+        [void]$sb.AppendLine('Write-Host "  App settings that need manual export/import:" -ForegroundColor Yellow')
+        foreach ($mt in $matchedTips) {
+            $tipLine = "    $($mt.App): $($mt.Tip)"
+            $safeTipLine = $tipLine -replace '"', '``"'
+            [void]$sb.AppendLine("Write-Host `"$safeTipLine`" -ForegroundColor DarkGray")
+        }
+        [void]$sb.AppendLine('Write-Host ""')
+    }
+
+    Set-Content -Path $ScriptPath -Value $sb.ToString() -Encoding UTF8
+    Write-Log "Config restore script saved: $ScriptPath" -Level Success
+}
+
+function Write-VerifyTransferScript {
+    param([string]$ScriptPath, $ScanData)
+
+    $sb = [System.Text.StringBuilder]::new()
+    [void]$sb.AppendLine('<#')
+    [void]$sb.AppendLine('.SYNOPSIS')
+    [void]$sb.AppendLine('    Verify data transfer completeness. Generated by Migrate-Laptop.')
+    [void]$sb.AppendLine('.DESCRIPTION')
+    [void]$sb.AppendLine("    Generated from scan of $($ScanData.ComputerName) on $($ScanData.ScanDate).")
+    [void]$sb.AppendLine('    Compares source folders on this laptop against the destination.')
+    [void]$sb.AppendLine('    Shows folder/file counts at parent + one child level to catch major gaps.')
+    [void]$sb.AppendLine('    Run this on the OLD laptop after Transfer-Data.ps1 completes.')
+    [void]$sb.AppendLine('#>')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('[CmdletBinding()] param()')
+    [void]$sb.AppendLine('')
+
+    # Destination path input
+    [void]$sb.AppendLine('# -- Destination path (same as Transfer-Data.ps1) --')
+    [void]$sb.AppendLine('$destBase = Read-Host "  Enter destination base path (e.g., \\Desktop-PC\Migration or F:\Migration)"')
+    [void]$sb.AppendLine('if (-not (Test-Path $destBase)) {')
+    [void]$sb.AppendLine('    Write-Host "  Cannot access: $destBase" -ForegroundColor Red')
+    [void]$sb.AppendLine('    exit 1')
+    [void]$sb.AppendLine('}')
+    [void]$sb.AppendLine('')
+
+    # Progress file check
+    [void]$sb.AppendLine('# -- Load transfer progress --')
+    [void]$sb.AppendLine('$progressFile = Join-Path $PSScriptRoot ''transfer-data-progress.json''')
+    [void]$sb.AppendLine('$progress = @{}')
+    [void]$sb.AppendLine('if (Test-Path $progressFile) {')
+    [void]$sb.AppendLine('    try {')
+    [void]$sb.AppendLine('        $loaded = Get-Content $progressFile -Raw -Encoding UTF8 | ConvertFrom-Json')
+    [void]$sb.AppendLine('        $loaded.PSObject.Properties | ForEach-Object { $progress[$_.Name] = $_.Value }')
+    [void]$sb.AppendLine('    } catch { }')
+    [void]$sb.AppendLine('}')
+    [void]$sb.AppendLine('')
+
+    # Verify function
+    [void]$sb.AppendLine('# ===============================================================')
+    [void]$sb.AppendLine('# VERIFY FUNCTION -- compares source vs destination counts')
+    [void]$sb.AppendLine('# ===============================================================')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('$script:Results = @()')
+    [void]$sb.AppendLine('$script:TotalOk = 0')
+    [void]$sb.AppendLine('$script:TotalWarn = 0')
+    [void]$sb.AppendLine('$script:TotalSkip = 0')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('function Compare-FolderCounts {')
+    [void]$sb.AppendLine('    param(')
+    [void]$sb.AppendLine('        [string]$Label,')
+    [void]$sb.AppendLine('        [string]$SourcePath,')
+    [void]$sb.AppendLine('        [string]$DestPath,')
+    [void]$sb.AppendLine('        [string]$StepId')
+    [void]$sb.AppendLine('    )')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('    $isDone = $progress.ContainsKey($StepId) -and $progress[$StepId].Status -eq ''done''')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('    if (-not (Test-Path $SourcePath)) {')
+    [void]$sb.AppendLine('        $script:Results += [PSCustomObject]@{ Folder=$Label; Status="MISSING SRC"; SrcDirs="-"; SrcFiles="-"; DstDirs="-"; DstFiles="-"; Children="" }')
+    [void]$sb.AppendLine('        return')
+    [void]$sb.AppendLine('    }')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('    if (-not (Test-Path $DestPath)) {')
+    [void]$sb.AppendLine('        if ($isDone) {')
+    [void]$sb.AppendLine('            $script:Results += [PSCustomObject]@{ Folder=$Label; Status="WARN-GONE"; SrcDirs="?"; SrcFiles="?"; DstDirs="0"; DstFiles="0"; Children="Progress says done but dest missing!" }')
+    [void]$sb.AppendLine('            $script:TotalWarn++')
+    [void]$sb.AppendLine('        } else {')
+    [void]$sb.AppendLine('            $script:Results += [PSCustomObject]@{ Folder=$Label; Status="PENDING"; SrcDirs="-"; SrcFiles="-"; DstDirs="-"; DstFiles="-"; Children="" }')
+    [void]$sb.AppendLine('            $script:TotalSkip++')
+    [void]$sb.AppendLine('        }')
+    [void]$sb.AppendLine('        return')
+    [void]$sb.AppendLine('    }')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('    # Count top-level items')
+    [void]$sb.AppendLine('    $srcItems = Get-ChildItem $SourcePath -Force -ErrorAction SilentlyContinue')
+    [void]$sb.AppendLine('    $dstItems = Get-ChildItem $DestPath -Force -ErrorAction SilentlyContinue')
+    [void]$sb.AppendLine('    $srcDirs = @($srcItems | Where-Object { $_.PSIsContainer }).Count')
+    [void]$sb.AppendLine('    $srcFiles = @($srcItems | Where-Object { -not $_.PSIsContainer }).Count')
+    [void]$sb.AppendLine('    $dstDirs = @($dstItems | Where-Object { $_.PSIsContainer }).Count')
+    [void]$sb.AppendLine('    $dstFiles = @($dstItems | Where-Object { -not $_.PSIsContainer }).Count')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('    # Check one level deeper -- compare child folder names and their item counts')
+    [void]$sb.AppendLine('    $childIssues = @()')
+    [void]$sb.AppendLine('    $srcChildDirs = @($srcItems | Where-Object { $_.PSIsContainer })')
+    [void]$sb.AppendLine('    foreach ($child in $srcChildDirs) {')
+    [void]$sb.AppendLine('        $dstChild = Join-Path $DestPath $child.Name')
+    [void]$sb.AppendLine('        if (-not (Test-Path $dstChild)) {')
+    [void]$sb.AppendLine('            $childIssues += "$($child.Name) [MISSING]"')
+    [void]$sb.AppendLine('        } else {')
+    [void]$sb.AppendLine('            $srcCC = @(Get-ChildItem $child.FullName -Force -ErrorAction SilentlyContinue).Count')
+    [void]$sb.AppendLine('            $dstCC = @(Get-ChildItem $dstChild -Force -ErrorAction SilentlyContinue).Count')
+    [void]$sb.AppendLine('            if ($srcCC -gt 0 -and $dstCC -eq 0) {')
+    [void]$sb.AppendLine('                $childIssues += "$($child.Name) [EMPTY dst: $srcCC->0]"')
+    [void]$sb.AppendLine('            } elseif ($dstCC -lt ($srcCC * 0.5) -and $srcCC -gt 2) {')
+    [void]$sb.AppendLine('                $childIssues += "$($child.Name) [$dstCC/$srcCC items]"')
+    [void]$sb.AppendLine('            }')
+    [void]$sb.AppendLine('        }')
+    [void]$sb.AppendLine('    }')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('    $childNote = if ($childIssues.Count -gt 0) { $childIssues -join ", " } else { "" }')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('    # Determine status -- dirs may differ due to exclusions, so check files mainly')
+    [void]$sb.AppendLine('    $status = "OK"')
+    [void]$sb.AppendLine('    if ($dstFiles -eq 0 -and $srcFiles -gt 0) { $status = "WARN" }')
+    [void]$sb.AppendLine('    elseif ($dstFiles -lt ($srcFiles * 0.5) -and $srcFiles -gt 5) { $status = "WARN" }')
+    [void]$sb.AppendLine('    elseif ($childIssues.Count -gt 0) { $status = "WARN" }')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('    if ($status -eq "OK") { $script:TotalOk++ } else { $script:TotalWarn++ }')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('    $script:Results += [PSCustomObject]@{')
+    [void]$sb.AppendLine('        Folder   = $Label')
+    [void]$sb.AppendLine('        Status   = $status')
+    [void]$sb.AppendLine('        SrcDirs  = $srcDirs')
+    [void]$sb.AppendLine('        SrcFiles = $srcFiles')
+    [void]$sb.AppendLine('        DstDirs  = $dstDirs')
+    [void]$sb.AppendLine('        DstFiles = $dstFiles')
+    [void]$sb.AppendLine('        Children = $childNote')
+    [void]$sb.AppendLine('    }')
+    [void]$sb.AppendLine('}')
+    [void]$sb.AppendLine('')
+
+    # Emit verification calls for user profile folders
+    [void]$sb.AppendLine('Write-Host "`n  -- Verifying Transfer --`n" -ForegroundColor Cyan')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('# -- User Profile Folders --')
+    foreach ($f in $ScanData.UserFolders) {
+        if ($f.FileCount -eq 0) { continue }
+        $safeName = $f.Name -replace '[^a-zA-Z0-9]', ''
+        $stepId = "folder-$safeName"
+        [void]$sb.AppendLine("Compare-FolderCounts -Label '$($f.Name)' -SourcePath '$($f.Path)' -DestPath `"`$destBase\C\$($f.Name)`" -StepId '$stepId'")
+    }
+    [void]$sb.AppendLine('')
+
+    # Emit verification calls for custom folders (grouped by drive)
+    if ($ScanData.CustomFolders.Count -gt 0) {
+        $driveGroups = @{}
+        foreach ($f in $ScanData.CustomFolders) {
+            $drv = $f.Drive
+            if (-not $driveGroups.ContainsKey($drv)) { $driveGroups[$drv] = @() }
+            $driveGroups[$drv] += $f
+        }
+        $otherDrives = $driveGroups.Keys | Where-Object { $_ -ne 'C' } | Sort-Object
+        $driveOrder = @($otherDrives) + @(if ($driveGroups.ContainsKey('C')) { 'C' })
+
+        foreach ($drv in $driveOrder) {
+            $folders = $driveGroups[$drv]
+            $label = if ($drv -eq 'C') { 'C: custom' } else { "$($drv):" }
+            [void]$sb.AppendLine("# -- $label Drive --")
+            foreach ($f in $folders) {
+                $safeName = ($f.Name -replace '[^a-zA-Z0-9_]', '')
+                $stepId = "folder-${drv}_${safeName}"
+                [void]$sb.AppendLine("Compare-FolderCounts -Label '$($drv):\$($f.Name)' -SourcePath '$($f.Path)' -DestPath `"`$destBase\$drv\$($f.Name)`" -StepId '$stepId'")
+            }
+            [void]$sb.AppendLine('')
+        }
+    }
+
+    # Summary output
+    [void]$sb.AppendLine('# ===============================================================')
+    [void]$sb.AppendLine('# RESULTS')
+    [void]$sb.AppendLine('# ===============================================================')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('Write-Host ""')
+    [void]$sb.AppendLine('Write-Host "  +-------------------------------------------------------------------------------------+" -ForegroundColor Cyan')
+    [void]$sb.AppendLine('Write-Host "  |  TRANSFER VERIFICATION RESULTS                                                     |" -ForegroundColor Cyan')
+    [void]$sb.AppendLine('Write-Host "  +-------------------------------------------------------------------------------------+" -ForegroundColor Cyan')
+    [void]$sb.AppendLine('Write-Host ""')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('# Show results table')
+    [void]$sb.AppendLine('Write-Host ("  {0,-30} {1,-12} {2,-10} {3,-10} {4,-10} {5,-10} {6}" -f "Folder","Status","Src Dirs","Src Files","Dst Dirs","Dst Files","Issues") -ForegroundColor DarkGray')
+    [void]$sb.AppendLine('Write-Host ("  {0,-30} {1,-12} {2,-10} {3,-10} {4,-10} {5,-10} {6}" -f "------","------","--------","---------","--------","---------","------") -ForegroundColor DarkGray')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('foreach ($r in $script:Results) {')
+    [void]$sb.AppendLine('    $color = switch ($r.Status) {')
+    [void]$sb.AppendLine('        "OK"        { "Green" }')
+    [void]$sb.AppendLine('        "WARN"      { "Yellow" }')
+    [void]$sb.AppendLine('        "WARN-GONE" { "Red" }')
+    [void]$sb.AppendLine('        "PENDING"   { "DarkGray" }')
+    [void]$sb.AppendLine('        "MISSING SRC" { "DarkGray" }')
+    [void]$sb.AppendLine('        default     { "Gray" }')
+    [void]$sb.AppendLine('    }')
+    [void]$sb.AppendLine('    $icon = switch ($r.Status) { "OK" { "[OK]" } "WARN" { "[!!]" } "WARN-GONE" { "[XX]" } "PENDING" { "[--]" } default { "[??]" } }')
+    [void]$sb.AppendLine('    Write-Host ("  {0,-30} {1,-12} {2,-10} {3,-10} {4,-10} {5,-10} {6}" -f $r.Folder, $icon, $r.SrcDirs, $r.SrcFiles, $r.DstDirs, $r.DstFiles, $r.Children) -ForegroundColor $color')
+    [void]$sb.AppendLine('}')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('Write-Host ""')
+    [void]$sb.AppendLine('Write-Host "  -- Summary --" -ForegroundColor Cyan')
+    [void]$sb.AppendLine('Write-Host "    [OK]  Verified:  $($script:TotalOk) folders" -ForegroundColor Green')
+    [void]$sb.AppendLine('Write-Host "    [!!]  Warnings:  $($script:TotalWarn) folders (check counts above)" -ForegroundColor Yellow')
+    [void]$sb.AppendLine('Write-Host "    [--]  Pending:   $($script:TotalSkip) folders (not yet transferred)" -ForegroundColor DarkGray')
+    [void]$sb.AppendLine('Write-Host ""')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('if ($script:TotalWarn -gt 0) {')
+    [void]$sb.AppendLine('    Write-Host "  Some folders have mismatched counts. This can be normal if:" -ForegroundColor Yellow')
+    [void]$sb.AppendLine('    Write-Host "    - Excluded dirs (.git, node_modules, etc.) reduced the count" -ForegroundColor Gray')
+    [void]$sb.AppendLine('    Write-Host "    - Excluded files (*.log, *.tmp, *.exe, etc.) were skipped" -ForegroundColor Gray')
+    [void]$sb.AppendLine('    Write-Host "    - Files were in use or access denied during transfer" -ForegroundColor Gray')
+    [void]$sb.AppendLine('    Write-Host ""')
+    [void]$sb.AppendLine('    Write-Host "  For real issues: re-run Transfer-Data.ps1 -- it only copies what is missing." -ForegroundColor Yellow')
+    [void]$sb.AppendLine('} else {')
+    [void]$sb.AppendLine('    Write-Host "  All transferred folders look good!" -ForegroundColor Green')
+    [void]$sb.AppendLine('}')
+    [void]$sb.AppendLine('Write-Host ""')
+
+    Set-Content -Path $ScriptPath -Value $sb.ToString() -Encoding UTF8
+    Write-Log "Verify transfer script saved: $ScriptPath" -Level Success
+}
 
 function Write-AiReviewFile {
     param([string]$FilePath, $ScanData)
 
     $sb = [System.Text.StringBuilder]::new()
-    [void]$sb.AppendLine("# Migration Summary — For AI Review")
+    [void]$sb.AppendLine("# Migration Summary -- For AI Review")
     [void]$sb.AppendLine("")
     [void]$sb.AppendLine("Paste this into ChatGPT, Copilot, or your preferred AI assistant for personalized migration advice.")
     [void]$sb.AppendLine("")
@@ -3031,82 +3400,79 @@ function Write-AiReviewFile {
     Write-Log "AI review file saved: $FilePath" -Level Success
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # SECTION 6: POST-MIGRATION CHECKLIST (Phase 3)
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 function Show-PostMigrationChecklist {
     Write-Host ""
-    Write-Host "  ╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
-    Write-Host "  ║              Post-Migration Verification Checklist           ║" -ForegroundColor Green
-    Write-Host "  ╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Green
+    Write-Host "  +==============================================================+" -ForegroundColor Green
+    Write-Host "  |              Post-Migration Verification Checklist           |" -ForegroundColor Green
+    Write-Host "  +==============================================================+" -ForegroundColor Green
     Write-Host ""
 
-    $checks = @(
-        @{ Label = "VS Code opens and shows your extensions";            Cmd = "code --list-extensions | Measure-Object | Select -Expand Count" }
-        @{ Label = "Git is installed and configured";                    Cmd = "git config --global user.name" }
-        @{ Label = "SSH keys work (GitHub)";                             Cmd = "ssh -T git@github.com 2>&1" }
-        @{ Label = "Node.js is installed";                               Cmd = "node --version 2>&1" }
-        @{ Label = "Python is installed";                                Cmd = "python --version 2>&1" }
-        @{ Label = "Java is installed";                                  Cmd = "java --version 2>&1" }
-        @{ Label = "Docker is running";                                  Cmd = "docker --version 2>&1" }
-        @{ Label = "Browser bookmarks are visible";                      Cmd = $null }
-        @{ Label = "Environment variables are correct (check PATH)";     Cmd = $null }
-        @{ Label = "Projects build successfully";                        Cmd = $null }
-        @{ Label = "VPN connects properly";                              Cmd = $null }
-        @{ Label = "Printers are configured";                            Cmd = $null }
-    )
-
-    $i = 0
-    foreach ($check in $checks) {
-        $i++
-        if ($check.Cmd) {
-            Write-Host "  [$i] $($check.Label)" -ForegroundColor White
+    # Safe check runner -- avoids Invoke-Expression by using explicit ScriptBlocks
+    function Run-Check {
+        param([string]$Label, [int]$Index, [scriptblock]$Check)
+        Write-Host "  [$Index] $Label" -ForegroundColor White
+        if ($Check) {
             try {
-                $result = Invoke-Expression $check.Cmd 2>&1
-                Write-Host "      → $result" -ForegroundColor Gray
+                $result = & $Check 2>&1
+                Write-Host "      -> $result" -ForegroundColor Gray
             } catch {
-                Write-Host "      → Not available or not installed" -ForegroundColor Yellow
+                Write-Host "      -> Not available or not installed" -ForegroundColor Yellow
             }
         } else {
-            Write-Host "  [$i] $($check.Label)" -ForegroundColor White
-            Write-Host "      → Manual check required" -ForegroundColor DarkGray
+            Write-Host "      -> Manual check required" -ForegroundColor DarkGray
         }
-
         $response = Read-Host "      Pass? [Y/n/skip]"
         if ($response -match '^[nN]') {
-            Write-Host "      ✗ FAILED — address this before continuing" -ForegroundColor Red
+            Write-Host "      [x] FAILED -- address this before continuing" -ForegroundColor Red
         } elseif ($response -match '^[sS]') {
-            Write-Host "      ○ Skipped" -ForegroundColor DarkGray
+            Write-Host "      o Skipped" -ForegroundColor DarkGray
         } else {
-            Write-Host "      ✓ Passed" -ForegroundColor Green
+            Write-Host "      [v] Passed" -ForegroundColor Green
         }
         Write-Host ""
     }
 
-    Write-Host "  ──────────────────────────────────────────────────────────" -ForegroundColor Green
+    $idx = 0
+    $idx++; Run-Check -Label "VS Code opens and shows your extensions"        -Index $idx -Check { (& code --list-extensions 2>$null | Measure-Object).Count }
+    $idx++; Run-Check -Label "Git is installed and configured"                -Index $idx -Check { & git config --global user.name 2>$null }
+    $idx++; Run-Check -Label "SSH keys work (GitHub)"                         -Index $idx -Check { & ssh -T git@github.com 2>&1 }
+    $idx++; Run-Check -Label "Node.js is installed"                           -Index $idx -Check { & node --version 2>$null }
+    $idx++; Run-Check -Label "Python is installed"                            -Index $idx -Check { & python --version 2>$null }
+    $idx++; Run-Check -Label "Java is installed"                              -Index $idx -Check { & java --version 2>&1 | Select-Object -First 1 }
+    $idx++; Run-Check -Label "Docker is running"                              -Index $idx -Check { & docker --version 2>$null }
+    $idx++; Run-Check -Label "Browser bookmarks are visible"                  -Index $idx -Check $null
+    $idx++; Run-Check -Label "Environment variables are correct (check PATH)" -Index $idx -Check $null
+    $idx++; Run-Check -Label "Projects build successfully"                    -Index $idx -Check $null
+    $idx++; Run-Check -Label "VPN connects properly"                          -Index $idx -Check $null
+    $idx++; Run-Check -Label "Printers are configured"                        -Index $idx -Check $null
+
+    Write-Host "  ----------------------------------------------------------" -ForegroundColor Green
     Write-Host "  Migration verification complete!" -ForegroundColor Green
     Write-Host "  If all checks passed, your new laptop is ready." -ForegroundColor Green
     Write-Host "  Keep your old laptop data until you're confident." -ForegroundColor Yellow
     Write-Host ""
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
-# SECTION 6B: OLD LAPTOP CLEANUP (Destructive — double confirmation required)
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
+# SECTION 6B: OLD LAPTOP CLEANUP (Destructive -- double confirmation required)
+# ===========================================================================
 
 function Start-OldLaptopCleanup {
-    # ── WARNING 1 of 2 ──
+    # -- WARNING 1 of 2 --
     Write-Host ""
-    Write-Host "  ██████████████████████████████████████████████████████████████" -ForegroundColor Red
-    Write-Host "  ██                                                          ██" -ForegroundColor Red
-    Write-Host "  ██   ██     ██  █████  ██████  ███    ██ ██ ███    ██  ██████" -ForegroundColor Red
-    Write-Host "  ██   ██     ██ ██   ██ ██   ██ ████   ██ ██ ████   ██ ██    " -ForegroundColor Red
-    Write-Host "  ██   ██  █  ██ ███████ ██████  ██ ██  ██ ██ ██ ██  ██ ██  ██" -ForegroundColor Red
-    Write-Host "  ██   ██ ███ ██ ██   ██ ██   ██ ██  ██ ██ ██ ██  ██ ██ ██  ██" -ForegroundColor Red
-    Write-Host "  ██    ███ ███  ██   ██ ██   ██ ██   ████ ██ ██   ████  █████" -ForegroundColor Red
-    Write-Host "  ██                                                          ██" -ForegroundColor Red
-    Write-Host "  ██████████████████████████████████████████████████████████████" -ForegroundColor Red
+    Write-Host "  ##############################################################" -ForegroundColor Red
+    Write-Host "  ##                                                          ##" -ForegroundColor Red
+    Write-Host "  ##   ##     ##  #####  ######  ###    ## ## ###    ##  ######" -ForegroundColor Red
+    Write-Host "  ##   ##     ## ##   ## ##   ## ####   ## ## ####   ## ##    " -ForegroundColor Red
+    Write-Host "  ##   ##  #  ## ####### ######  ## ##  ## ## ## ##  ## ##  ##" -ForegroundColor Red
+    Write-Host "  ##   ## ### ## ##   ## ##   ## ##  ## ## ## ##  ## ## ##  ##" -ForegroundColor Red
+    Write-Host "  ##    ### ###  ##   ## ##   ## ##   #### ## ##   ####  #####" -ForegroundColor Red
+    Write-Host "  ##                                                          ##" -ForegroundColor Red
+    Write-Host "  ##############################################################" -ForegroundColor Red
     Write-Host ""
     Write-Host "  THIS WILL PERMANENTLY DELETE PERSONAL DATA FROM THIS LAPTOP" -ForegroundColor Red
     Write-Host "  THERE IS NO UNDO. FILES CANNOT BE RECOVERED." -ForegroundColor Red
@@ -3132,20 +3498,20 @@ function Start-OldLaptopCleanup {
     Write-Host "  Have you verified the new laptop is fully working?" -ForegroundColor White
     $confirm1 = Read-Host "  Type 'I HAVE VERIFIED' to continue (anything else cancels)"
     if ($confirm1 -ne 'I HAVE VERIFIED') {
-        Write-Host "  Cancelled. Good — verify your new laptop first." -ForegroundColor Green
+        Write-Host "  Cancelled. Good -- verify your new laptop first." -ForegroundColor Green
         return
     }
 
-    # ── WARNING 2 of 2 ──
+    # -- WARNING 2 of 2 --
     Write-Host ""
-    Write-Host "  ██████████████████████████████████████████████████████████████" -ForegroundColor Red
-    Write-Host "  ██                                                          ██" -ForegroundColor Red
-    Write-Host "  ██       FINAL WARNING — POINT OF NO RETURN                 ██" -ForegroundColor Red
-    Write-Host "  ██                                                          ██" -ForegroundColor Red
-    Write-Host "  ██  Everything listed above will be PERMANENTLY DELETED     ██" -ForegroundColor Red
-    Write-Host "  ██  from this laptop. This cannot be reversed.              ██" -ForegroundColor Red
-    Write-Host "  ██                                                          ██" -ForegroundColor Red
-    Write-Host "  ██████████████████████████████████████████████████████████████" -ForegroundColor Red
+    Write-Host "  ##############################################################" -ForegroundColor Red
+    Write-Host "  ##                                                          ##" -ForegroundColor Red
+    Write-Host "  ##       FINAL WARNING -- POINT OF NO RETURN                 ##" -ForegroundColor Red
+    Write-Host "  ##                                                          ##" -ForegroundColor Red
+    Write-Host "  ##  Everything listed above will be PERMANENTLY DELETED     ##" -ForegroundColor Red
+    Write-Host "  ##  from this laptop. This cannot be reversed.              ##" -ForegroundColor Red
+    Write-Host "  ##                                                          ##" -ForegroundColor Red
+    Write-Host "  ##############################################################" -ForegroundColor Red
     Write-Host ""
     Write-Host "  CONFIRMATION 2 of 2:" -ForegroundColor Red
     $confirm2 = Read-Host "  Type 'DELETE MY DATA' to proceed (anything else cancels)"
@@ -3155,9 +3521,9 @@ function Start-OldLaptopCleanup {
     }
 
     Write-Host ""
-    Write-Log "Old laptop cleanup started — user confirmed twice" -Level Warn
+    Write-Log "Old laptop cleanup started -- user confirmed twice" -Level Warn
 
-    # ── Step 1: Clean user profile folders ──
+    # -- Step 1: Clean user profile folders --
     Write-Step "Step 1/9: Cleaning User Profile Folders"
     $profileFolders = @(
         [Environment]::GetFolderPath('Desktop'),
@@ -3176,7 +3542,7 @@ function Start-OldLaptopCleanup {
                     Get-ChildItem -Path $folder -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
                     Write-Log "Cleaned: $folder" -Level Success
                 } catch {
-                    Write-Log "Error cleaning $folder — $($_.Exception.Message)" -Level Error
+                    Write-Log "Error cleaning $folder -- $($_.Exception.Message)" -Level Error
                 }
             } else {
                 Write-Log "Skipped: $folder" -Level Info
@@ -3184,7 +3550,7 @@ function Start-OldLaptopCleanup {
         }
     }
 
-    # ── Step 2: Clean custom data folders on non-C drives ──
+    # -- Step 2: Clean custom data folders on non-C drives --
     Write-Step "Step 2/9: Cleaning Custom Data Folders (D:\, E:\, etc.)"
     $drives = Get-PSDrive -PSProvider FileSystem | Where-Object { ($_.Used -or $_.Free) -and $_.Root -ne 'C:\' }
     foreach ($drive in $drives) {
@@ -3202,7 +3568,7 @@ function Start-OldLaptopCleanup {
                         Remove-Item -Path $folder.FullName -Recurse -Force -ErrorAction SilentlyContinue
                         Write-Log "Deleted: $($folder.FullName)" -Level Success
                     } catch {
-                        Write-Log "Error deleting $($folder.FullName) — $($_.Exception.Message)" -Level Warn
+                        Write-Log "Error deleting $($folder.FullName) -- $($_.Exception.Message)" -Level Warn
                     }
                 }
             } else {
@@ -3211,7 +3577,7 @@ function Start-OldLaptopCleanup {
         }
     }
 
-    # ── Step 3: Remove browser profiles ──
+    # -- Step 3: Remove browser profiles --
     Write-Step "Step 3/9: Removing Browser Profiles"
     $browserPaths = @(
         @{ Name = "Chrome";  Path = Join-Path $env:LOCALAPPDATA "Google\Chrome\User Data" }
@@ -3226,30 +3592,30 @@ function Start-OldLaptopCleanup {
                     Remove-Item -Path $browser.Path -Recurse -Force -ErrorAction SilentlyContinue
                     Write-Log "Removed $($browser.Name) profile data" -Level Success
                 } catch {
-                    Write-Log "Error removing $($browser.Name) — $($_.Exception.Message). Close the browser and retry." -Level Error
+                    Write-Log "Error removing $($browser.Name) -- $($_.Exception.Message). Close the browser and retry." -Level Error
                 }
             }
         }
     }
 
-    # ── Step 4: Sign out of cloud accounts (guidance) ──
+    # -- Step 4: Sign out of cloud accounts (guidance) --
     Write-Step "Step 4/9: Cloud Account Sign-Out"
     Write-Host "  Cloud accounts need manual sign-out:" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "  OneDrive:" -ForegroundColor White
-    Write-Host "    Right-click OneDrive icon in taskbar → Settings → Account → Unlink this PC" -ForegroundColor Gray
+    Write-Host "    Right-click OneDrive icon in taskbar -> Settings -> Account -> Unlink this PC" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  Microsoft 365 / Teams:" -ForegroundColor White
-    Write-Host "    Settings → Accounts → Sign out from all apps" -ForegroundColor Gray
+    Write-Host "    Settings -> Accounts -> Sign out from all apps" -ForegroundColor Gray
     Write-Host ""
-    Write-Host "  Google (if signed into Chrome — already removed in Step 3):" -ForegroundColor White
+    Write-Host "  Google (if signed into Chrome -- already removed in Step 3):" -ForegroundColor White
     Write-Host "    Go to myaccount.google.com/device-activity to remove this device" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  iCloud (if installed):" -ForegroundColor White
-    Write-Host "    Open iCloud app → Sign Out" -ForegroundColor Gray
+    Write-Host "    Open iCloud app -> Sign Out" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  Dropbox / other cloud storage:" -ForegroundColor White
-    Write-Host "    Open the app → Preferences → Account → Unlink" -ForegroundColor Gray
+    Write-Host "    Open the app -> Preferences -> Account -> Unlink" -ForegroundColor Gray
     Write-Host ""
     # Try to stop/unlink OneDrive programmatically
     $odProcess = Get-Process OneDrive -ErrorAction SilentlyContinue
@@ -3258,37 +3624,43 @@ function Start-OldLaptopCleanup {
         if ($confirm -match '^[yY]') {
             try {
                 Stop-Process -Name OneDrive -Force -ErrorAction SilentlyContinue
-                Start-Sleep -Seconds 2
+                # Wait for OneDrive to exit (up to 5 seconds)
+                $odProc = Get-Process OneDrive -ErrorAction SilentlyContinue
+                if ($odProc) { $odProc | Wait-Process -Timeout 5 -ErrorAction SilentlyContinue }
                 $odCacheDir = Join-Path $env:LOCALAPPDATA "Microsoft\OneDrive"
                 if (Test-Path $odCacheDir) {
                     Remove-Item -Path $odCacheDir -Recurse -Force -ErrorAction SilentlyContinue
                     Write-Log "OneDrive local cache cleared" -Level Success
                 }
             } catch {
-                Write-Log "Error clearing OneDrive — $($_.Exception.Message)" -Level Warn
+                Write-Log "Error clearing OneDrive -- $($_.Exception.Message)" -Level Warn
             }
         }
     }
     Read-Host "  Press Enter after signing out of cloud accounts (or skip)"
 
-    # ── Step 5: Remove saved WiFi passwords ──
+    # -- Step 5: Remove saved WiFi passwords --
     Write-Step "Step 5/9: Removing Saved WiFi Passwords"
     $confirm = Read-Host "  Delete all saved WiFi profiles? [y/N]"
     if ($confirm -match '^[yY]') {
         try {
             $wifiProfiles = & netsh wlan show profiles 2>$null |
-                Select-String 'All User Profile\s*:\s*(.+)' |
-                ForEach-Object { $_.Matches[0].Groups[1].Value.Trim() }
-            foreach ($profile in $wifiProfiles) {
-                & netsh wlan delete profile name="$profile" 2>$null | Out-Null
+                ForEach-Object {
+                    if ($_ -match ':\s*(.+)$' -and $_ -notmatch '^-') {
+                        $candidate = $Matches[1].Trim()
+                        if ($candidate -and $candidate.Length -gt 0 -and $candidate -notmatch '^\s*$') { $candidate }
+                    }
+                } | Where-Object { $_ }
+            foreach ($wifiProfile in $wifiProfiles) {
+                & netsh wlan delete profile name="$wifiProfile" 2>$null | Out-Null
             }
             Write-Log "Deleted $($wifiProfiles.Count) WiFi profiles" -Level Success
         } catch {
-            Write-Log "Error removing WiFi profiles — $($_.Exception.Message)" -Level Warn
+            Write-Log "Error removing WiFi profiles -- $($_.Exception.Message)" -Level Warn
         }
     }
 
-    # ── Step 6: Clear Windows Credential Manager ──
+    # -- Step 6: Clear Windows Credential Manager --
     Write-Step "Step 6/9: Clearing Windows Credential Manager"
     $confirm = Read-Host "  Clear all saved credentials (Git tokens, app passwords, etc.)? [y/N]"
     if ($confirm -match '^[yY]') {
@@ -3300,11 +3672,11 @@ function Start-OldLaptopCleanup {
             }
             Write-Log "Cleared $($creds.Count) saved credentials" -Level Success
         } catch {
-            Write-Log "Error clearing credentials — $($_.Exception.Message)" -Level Warn
+            Write-Log "Error clearing credentials -- $($_.Exception.Message)" -Level Warn
         }
     }
 
-    # ── Step 7: Remove SSH keys and Git config ──
+    # -- Step 7: Remove SSH keys and Git config --
     Write-Step "Step 7/9: Removing SSH Keys & Git Config"
     $sshDir = Join-Path $env:USERPROFILE ".ssh"
     if (Test-Path $sshDir) {
@@ -3314,7 +3686,7 @@ function Start-OldLaptopCleanup {
                 Remove-Item -Path $sshDir -Recurse -Force -ErrorAction SilentlyContinue
                 Write-Log "SSH keys deleted" -Level Success
             } catch {
-                Write-Log "Error deleting SSH keys — $($_.Exception.Message)" -Level Warn
+                Write-Log "Error deleting SSH keys -- $($_.Exception.Message)" -Level Warn
             }
         }
     }
@@ -3327,7 +3699,7 @@ function Start-OldLaptopCleanup {
         }
     }
 
-    # ── Step 8: Clear user environment variables ──
+    # -- Step 8: Clear user environment variables --
     Write-Step "Step 8/9: Clearing User Environment Variables"
     $confirm = Read-Host "  Remove all user environment variables (keeps system ones like PATH)? [y/N]"
     if ($confirm -match '^[yY]') {
@@ -3347,11 +3719,11 @@ function Start-OldLaptopCleanup {
                 Write-Log "User environment variables cleared (PATH, TEMP, TMP kept)" -Level Success
             }
         } catch {
-            Write-Log "Error clearing env vars — $($_.Exception.Message)" -Level Warn
+            Write-Log "Error clearing env vars -- $($_.Exception.Message)" -Level Warn
         }
     }
 
-    # ── Step 9: Empty Recycle Bin ──
+    # -- Step 9: Empty Recycle Bin --
     Write-Step "Step 9/9: Emptying Recycle Bin"
     $confirm = Read-Host "  Empty the Recycle Bin (permanently delete trashed files)? [y/N]"
     if ($confirm -match '^[yY]') {
@@ -3359,15 +3731,15 @@ function Start-OldLaptopCleanup {
             Clear-RecycleBin -Force -ErrorAction SilentlyContinue
             Write-Log "Recycle Bin emptied" -Level Success
         } catch {
-            Write-Log "Error emptying Recycle Bin — $($_.Exception.Message)" -Level Warn
+            Write-Log "Error emptying Recycle Bin -- $($_.Exception.Message)" -Level Warn
         }
     }
 
-    # ── Done ──
+    # -- Done --
     Write-Host ""
-    Write-Host "  ╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
-    Write-Host "  ║                   Cleanup Complete!                          ║" -ForegroundColor Green
-    Write-Host "  ╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Green
+    Write-Host "  +==============================================================+" -ForegroundColor Green
+    Write-Host "  |                   Cleanup Complete!                          |" -ForegroundColor Green
+    Write-Host "  +==============================================================+" -ForegroundColor Green
     Write-Host ""
     Write-Host "  Remaining manual steps:" -ForegroundColor Yellow
     Write-Host "    - Sign out of OneDrive, Teams, and other cloud apps" -ForegroundColor Yellow
@@ -3377,27 +3749,27 @@ function Start-OldLaptopCleanup {
     Write-Host "        github.com/settings/sessions" -ForegroundColor Gray
     Write-Host "    - Remove this device from Find My Device (if enabled)" -ForegroundColor Yellow
     Write-Host "    - Consider Windows Reset if handing to someone else:" -ForegroundColor Yellow
-    Write-Host "        Settings → System → Recovery → Reset this PC" -ForegroundColor Gray
+    Write-Host "        Settings -> System -> Recovery -> Reset this PC" -ForegroundColor Gray
     Write-Host ""
     Write-Log "Old laptop cleanup completed."
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # SECTION 6C: ABOUT THIS TOOL
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 function Show-AboutTool {
     Write-Host ""
-    Write-Host "  ╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-    Write-Host "  ║         What is this tool? — Migrate-Laptop                 ║" -ForegroundColor Cyan
-    Write-Host "  ╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+    Write-Host "  +==============================================================+" -ForegroundColor Cyan
+    Write-Host "  |         What is this tool? -- Migrate-Laptop                 |" -ForegroundColor Cyan
+    Write-Host "  +==============================================================+" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "  Created by gauravkhurana.com for the community" -ForegroundColor DarkCyan
     Write-Host "  Star the repo: github.com/gauravkhuraana/new-laptop-setup" -ForegroundColor DarkCyan
     Write-Host ""
 
     Write-Host "  THE PROBLEM" -ForegroundColor Yellow
-    Write-Host "  ───────────" -ForegroundColor Yellow
+    Write-Host "  -----------" -ForegroundColor Yellow
     Write-Host "  Getting a new laptop means:" -ForegroundColor White
     Write-Host "    - You forget what software you had installed" -ForegroundColor Gray
     Write-Host "    - You lose configs (Git, SSH, VS Code, env vars, terminal settings)" -ForegroundColor Gray
@@ -3407,13 +3779,13 @@ function Show-AboutTool {
     Write-Host ""
 
     Write-Host "  THE SOLUTION" -ForegroundColor Green
-    Write-Host "  ────────────" -ForegroundColor Green
+    Write-Host "  ------------" -ForegroundColor Green
     Write-Host "  This tool scans your OLD laptop and generates ready-to-run scripts" -ForegroundColor White
     Write-Host "  for your NEW one. You review everything, then run what you need." -ForegroundColor White
     Write-Host ""
 
     Write-Host "  WHAT IT CAN DO" -ForegroundColor Cyan
-    Write-Host "  ──────────────" -ForegroundColor Cyan
+    Write-Host "  --------------" -ForegroundColor Cyan
     Write-Host "    [+] Detect all installed software (172+ apps on a typical dev machine)" -ForegroundColor White
     Write-Host "    [+] Generate winget install commands to reinstall everything" -ForegroundColor White
     Write-Host "    [+] Transfer data folders with smart exclusions (skip node_modules etc.)" -ForegroundColor White
@@ -3425,12 +3797,12 @@ function Show-AboutTool {
     Write-Host "    [+] Capture File Explorer preferences (show extensions, hidden files)" -ForegroundColor White
     Write-Host "    [+] Find portable/standalone software not in Program Files" -ForegroundColor White
     Write-Host "    [+] Generate an interactive HTML report with everything found" -ForegroundColor White
-    Write-Host "    [+] Resume support — if interrupted, pick up where you left off" -ForegroundColor White
+    Write-Host "    [+] Resume support -- if interrupted, pick up where you left off" -ForegroundColor White
     Write-Host "    [+] Clean up old laptop when you're done (optional, with double confirm)" -ForegroundColor White
     Write-Host ""
 
     Write-Host "  WHAT IT CANNOT DO" -ForegroundColor Red
-    Write-Host "  ─────────────────" -ForegroundColor Red
+    Write-Host "  -----------------" -ForegroundColor Red
     Write-Host "    [-] Cannot migrate Windows itself (OS must be fresh on new laptop)" -ForegroundColor White
     Write-Host "    [-] Cannot transfer installed programs (they must be reinstalled)" -ForegroundColor White
     Write-Host "    [-] Cannot read SSH private key CONTENTS (only lists file names)" -ForegroundColor White
@@ -3438,7 +3810,7 @@ function Show-AboutTool {
     Write-Host "    [-] Cannot transfer browser passwords (use browser sign-in sync)" -ForegroundColor White
     Write-Host "    [-] Cannot migrate license keys (note them down manually)" -ForegroundColor White
     Write-Host "    [-] Cannot transfer 2FA/Authenticator (set up on new device first)" -ForegroundColor White
-    Write-Host "    [-] Cannot work on Mac (Windows PowerShell only — Mac tips included)" -ForegroundColor White
+    Write-Host "    [-] Cannot work on Mac (Windows PowerShell only -- Mac tips included)" -ForegroundColor White
     Write-Host "    [-] Cannot migrate WSL distros automatically (export/import manually)" -ForegroundColor White
     Write-Host "    [-] Cannot transfer Docker volumes or database data (manual backup)" -ForegroundColor White
     Write-Host "    [-] Cannot migrate display/sound settings (hardware-dependent)" -ForegroundColor White
@@ -3448,25 +3820,25 @@ function Show-AboutTool {
 
     Write-Host ""
     Write-Host "  HOW IT WORKS (step by step)" -ForegroundColor Cyan
-    Write-Host "  ───────────────────────────" -ForegroundColor Cyan
+    Write-Host "  ---------------------------" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "  Step 1: SCAN (on OLD laptop)" -ForegroundColor White
     Write-Host "    Run this tool, choose option [3] Scan & Prepare." -ForegroundColor Gray
     Write-Host "    It reads your laptop (never modifies anything) and generates:" -ForegroundColor Gray
-    Write-Host "      - An HTML report (open in browser — interactive, searchable)" -ForegroundColor DarkGray
+    Write-Host "      - An HTML report (open in browser -- interactive, searchable)" -ForegroundColor DarkGray
     Write-Host "      - Install-Software.ps1 (winget commands for all your apps)" -ForegroundColor DarkGray
     Write-Host "      - Transfer-Data.ps1 (robocopy commands for your data folders)" -ForegroundColor DarkGray
-    Write-Host "      - An AI review file (paste into ChatGPT/Copilot for advice)" -ForegroundColor DarkGray
+    Write-Host "      - Restore-Configs.ps1 (restores Git, VS Code, env vars, etc.)" -ForegroundColor DarkGray
     Write-Host ""
     Write-Host "  Step 2: REVIEW" -ForegroundColor White
     Write-Host "    Open the HTML report. Check your software list." -ForegroundColor Gray
-    Write-Host "    Open Install-Software.ps1 — comment out apps you don't need." -ForegroundColor Gray
-    Write-Host "    Review scan report for configs/env vars — check for secrets." -ForegroundColor Gray
+    Write-Host "    Open Install-Software.ps1 -- comment out apps you don't need." -ForegroundColor Gray
+    Write-Host "    Check Restore-Configs.ps1 for any secrets in env vars/.gitconfig." -ForegroundColor Gray
     Write-Host ""
     Write-Host "  Step 3: TRANSFER (pick what you need)" -ForegroundColor White
     Write-Host "    Copy the migration-output folder to the new laptop." -ForegroundColor Gray
-    Write-Host "    Run scripts one at a time — each asks confirmation per item." -ForegroundColor Gray
-    Write-Host "    You can run all two, or just one. They're independent." -ForegroundColor Gray
+    Write-Host "    Run scripts one at a time -- each asks confirmation per item." -ForegroundColor Gray
+    Write-Host "    You can run all three, or just one. They're independent." -ForegroundColor Gray
     Write-Host ""
     Write-Host "  Step 4: VERIFY" -ForegroundColor White
     Write-Host "    Run the post-migration checklist (option [6])." -ForegroundColor Gray
@@ -3478,17 +3850,17 @@ function Show-AboutTool {
     Write-Host ""
 
     Write-Host "  SAFETY GUARANTEES" -ForegroundColor Green
-    Write-Host "  ─────────────────" -ForegroundColor Green
+    Write-Host "  -----------------" -ForegroundColor Green
     Write-Host "    - This script never connects to the internet (zero network calls)" -ForegroundColor White
     Write-Host "      (Generated Install-Software.ps1 uses winget, which downloads from the internet)" -ForegroundColor DarkGray
     Write-Host "    - Never reads SSH private key contents" -ForegroundColor White
     Write-Host "    - Never reads browser passwords" -ForegroundColor White
     Write-Host "    - Never deletes or modifies files (except option [7] with double confirm)" -ForegroundColor White
     Write-Host "    - Automated security scans verify this on every code change" -ForegroundColor White
-    Write-Host "    - Single .ps1 file — you can read the entire source code" -ForegroundColor White
+    Write-Host "    - Single .ps1 file -- you can read the entire source code" -ForegroundColor White
     Write-Host ""
 
-    Write-Host "  ──────────────────────────────────────────────────────────" -ForegroundColor DarkCyan
+    Write-Host "  ----------------------------------------------------------" -ForegroundColor DarkCyan
     Write-Host "  Created by gauravkhurana.com for the community" -ForegroundColor DarkCyan
     Write-Host "  Like this? Star the repo: github.com/gauravkhuraana/new-laptop-setup" -ForegroundColor DarkCyan
     Write-Host "  Connect: gauravkhurana.com/connect" -ForegroundColor DarkCyan
@@ -3500,45 +3872,25 @@ function Show-AboutTool {
     Write-Host ""
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # SECTION 6D: MANUAL MIGRATION TIPS
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 function Show-ManualTips {
     Write-Host ""
-    Write-Host "  ╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-    Write-Host "  ║          Manual Laptop Migration — Tips & Checklist          ║" -ForegroundColor Cyan
-    Write-Host "  ╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+    Write-Host "  +==============================================================+" -ForegroundColor Cyan
+    Write-Host "  |          Manual Laptop Migration -- Tips & Checklist          |" -ForegroundColor Cyan
+    Write-Host "  +==============================================================+" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "  Created by gauravkhurana.com for the community" -ForegroundColor DarkCyan
     Write-Host "  Star the repo: github.com/gauravkhuraana/new-laptop-setup" -ForegroundColor DarkCyan
     Write-Host "  Connect: gauravkhurana.com/connect" -ForegroundColor DarkCyan
     Write-Host ""
 
-    # ── DO THIS FIRST (before any migration) ──
-    Write-Host "  ┌──────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
-    Write-Host "  │         DO THIS FIRST (on the OLD laptop, right now)      │" -ForegroundColor Yellow
-    Write-Host "  └──────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "  Verify browser sync is ON — history/bookmarks can't be recovered later:" -ForegroundColor Yellow
-    Write-Host "    Edge   : edge://settings/profiles/sync   — History, Passwords, Extensions" -ForegroundColor White
-    Write-Host "    Chrome : chrome://settings/syncSetup      — History, Passwords, Extensions" -ForegroundColor White
-    Write-Host "    Firefox: about:preferences#sync           — History, Bookmarks, Add-ons" -ForegroundColor White
-    Write-Host "    If any toggle is OFF, turn it ON now and wait for sync to complete." -ForegroundColor DarkGray
-    Write-Host ""
-    Write-Host "  Also verify before proceeding:" -ForegroundColor Yellow
-    Write-Host "    [ ] 2FA / Authenticator backed up or multi-device enabled" -ForegroundColor White
-    Write-Host "    [ ] Password manager synced and accessible from another device" -ForegroundColor White
-    Write-Host "    [ ] Outlook rules exported (File > Manage Rules > Options > Export)" -ForegroundColor White
-    Write-Host ""
-
-    Read-Host "  Press Enter after verifying the above..."
-    Write-Host ""
-
-    # ── GENERAL TIPS (for everyone) ──
-    Write-Host "  ┌──────────────────────────────────────────────────────────┐" -ForegroundColor Green
-    Write-Host "  │              GENERAL TIPS (for everyone)                  │" -ForegroundColor Green
-    Write-Host "  └──────────────────────────────────────────────────────────┘" -ForegroundColor Green
+    # -- GENERAL TIPS (for everyone) --
+    Write-Host "  +----------------------------------------------------------+" -ForegroundColor Green
+    Write-Host "  |              GENERAL TIPS (for everyone)                  |" -ForegroundColor Green
+    Write-Host "  +----------------------------------------------------------+" -ForegroundColor Green
     Write-Host ""
     Write-Host "  DO's:" -ForegroundColor Green
     Write-Host "    [+] Sign into Microsoft account on new laptop FIRST" -ForegroundColor White
@@ -3551,7 +3903,7 @@ function Show-ManualTips {
     Write-Host "    [+] Export Outlook rules BEFORE migration" -ForegroundColor White
     Write-Host "        File > Manage Rules & Alerts > Options > Export Rules" -ForegroundColor DarkGray
     Write-Host "    [+] Check your password manager is synced" -ForegroundColor White
-    Write-Host "        Bitwarden, 1Password, KeePass, LastPass — sign in on new laptop" -ForegroundColor DarkGray
+    Write-Host "        Bitwarden, 1Password, KeePass, LastPass -- sign in on new laptop" -ForegroundColor DarkGray
     Write-Host "        If using KeePass: copy your .kdbx database file manually" -ForegroundColor DarkGray
     Write-Host "    [+] Note down software license keys" -ForegroundColor White
     Write-Host "        Check email for purchase receipts or use tools like ProduKey" -ForegroundColor DarkGray
@@ -3563,30 +3915,30 @@ function Show-ManualTips {
     Write-Host "  DON'Ts:" -ForegroundColor Red
     Write-Host "    [-] Don't copy the entire C: drive" -ForegroundColor White
     Write-Host "        Windows, drivers, and system files won't work on different hardware" -ForegroundColor DarkGray
-    Write-Host "    [-] Don't copy Program Files — reinstall apps fresh" -ForegroundColor White
+    Write-Host "    [-] Don't copy Program Files -- reinstall apps fresh" -ForegroundColor White
     Write-Host "        Use winget: winget install Git.Git Google.Chrome etc." -ForegroundColor DarkGray
     Write-Host "    [-] Don't copy node_modules, .venv, target, bin/obj folders" -ForegroundColor White
     Write-Host "        Rebuild with: npm install, pip install, mvn install, dotnet restore" -ForegroundColor DarkGray
     Write-Host "    [-] Don't format old laptop until new one is fully verified" -ForegroundColor White
     Write-Host "        Keep it for at least 2 weeks as backup" -ForegroundColor DarkGray
     Write-Host "    [-] Don't transfer SSH keys over WiFi or email" -ForegroundColor White
-    Write-Host "        Use USB drive only — they are your most sensitive files" -ForegroundColor DarkGray
+    Write-Host "        Use USB drive only -- they are your most sensitive files" -ForegroundColor DarkGray
     Write-Host "    [-] Don't skip 2FA setup on new device" -ForegroundColor White
     Write-Host "        You'll get locked out of accounts if old device is wiped" -ForegroundColor DarkGray
     Write-Host ""
 
     Read-Host "  Press Enter for app-specific tips..."
 
-    # ── APP-SPECIFIC TIPS ──
+    # -- APP-SPECIFIC TIPS --
     Write-Host ""
-    Write-Host "  ┌──────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
-    Write-Host "  │            APP-SPECIFIC MIGRATION TIPS                    │" -ForegroundColor Yellow
-    Write-Host "  └──────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
+    Write-Host "  +----------------------------------------------------------+" -ForegroundColor Yellow
+    Write-Host "  |            APP-SPECIFIC MIGRATION TIPS                    |" -ForegroundColor Yellow
+    Write-Host "  +----------------------------------------------------------+" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "  Outlook:" -ForegroundColor Cyan
     Write-Host "    - Rules: File > Manage Rules & Alerts > Options > Export Rules (.rwz)" -ForegroundColor Gray
     Write-Host "    - Signatures: Copy from %APPDATA%\Microsoft\Signatures" -ForegroundColor Gray
-    Write-Host "    - Stationery: Sign into Outlook on new laptop — most settings sync" -ForegroundColor Gray
+    Write-Host "    - Stationery: Sign into Outlook on new laptop -- most settings sync" -ForegroundColor Gray
     Write-Host "    - If using Outlook desktop (not 365): export PST file via File > Export" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  VS Code:" -ForegroundColor Cyan
@@ -3596,13 +3948,13 @@ function Show-ManualTips {
     Write-Host "    - Extensions: code --list-extensions > extensions.txt (then install loop)" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  Browser Extensions:" -ForegroundColor Cyan
-    Write-Host "    - Chrome: Sign in with Google account — extensions sync automatically" -ForegroundColor Gray
-    Write-Host "    - Edge: Sign in with Microsoft account — extensions sync automatically" -ForegroundColor Gray
-    Write-Host "    - Firefox: Sign in with Firefox account — add-ons sync automatically" -ForegroundColor Gray
+    Write-Host "    - Chrome: Sign in with Google account -- extensions sync automatically" -ForegroundColor Gray
+    Write-Host "    - Edge: Sign in with Microsoft account -- extensions sync automatically" -ForegroundColor Gray
+    Write-Host "    - Firefox: Sign in with Firefox account -- add-ons sync automatically" -ForegroundColor Gray
     Write-Host "    - Passwords: All 3 browsers sync passwords when signed in" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  Password Managers:" -ForegroundColor Cyan
-    Write-Host "    - Bitwarden/1Password/LastPass: Install app, sign in — vault syncs" -ForegroundColor Gray
+    Write-Host "    - Bitwarden/1Password/LastPass: Install app, sign in -- vault syncs" -ForegroundColor Gray
     Write-Host "    - KeePass: Copy .kdbx file via USB, install KeePass, open the file" -ForegroundColor Gray
     Write-Host "    - Browser saved passwords: Sync via browser sign-in (see above)" -ForegroundColor Gray
     Write-Host ""
@@ -3610,8 +3962,8 @@ function Show-ManualTips {
     Write-Host "    - Microsoft Authenticator: Back up in app (Settings > Backup)" -ForegroundColor Gray
     Write-Host "      Then restore on new device by signing into same Microsoft account" -ForegroundColor DarkGray
     Write-Host "    - Google Authenticator: Transfer accounts (hamburger menu > Transfer)" -ForegroundColor Gray
-    Write-Host "      Scan QR code on new phone — do this BEFORE wiping old device!" -ForegroundColor DarkGray
-    Write-Host "    - Authy: Multi-device — install on new device, accounts appear" -ForegroundColor Gray
+    Write-Host "      Scan QR code on new phone -- do this BEFORE wiping old device!" -ForegroundColor DarkGray
+    Write-Host "    - Authy: Multi-device -- install on new device, accounts appear" -ForegroundColor Gray
     Write-Host "    - ALWAYS save backup codes when setting up 2FA on any service" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  Video Editors (Filmora, Premiere, DaVinci, OBS):" -ForegroundColor Cyan
@@ -3634,25 +3986,25 @@ function Show-ManualTips {
     Write-Host "    - HeidiSQL: File > Export Settings (or copy registry HKCU\Software\HeidiSQL)" -ForegroundColor Gray
     Write-Host "    - pgAdmin: Servers > right-click > Export Servers (saves as JSON)" -ForegroundColor Gray
     Write-Host "    - MongoDB Compass: Export saved connections from connection list" -ForegroundColor Gray
-    Write-Host "    - Postman: Sign in — collections sync. Or File > Export Collection" -ForegroundColor Gray
+    Write-Host "    - Postman: Sign in -- collections sync. Or File > Export Collection" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  FTP / Remote Tools:" -ForegroundColor Cyan
     Write-Host "    - FileZilla: Copy %APPDATA%\FileZilla\ (sitemanager.xml = saved servers)" -ForegroundColor Gray
     Write-Host "    - WinSCP: Options > Preferences > Storage > Export to INI file" -ForegroundColor Gray
     Write-Host "    - Fiddler: Copy %USERPROFILE%\Documents\Fiddler2\ (custom rules)" -ForegroundColor Gray
     Write-Host ""
-    Write-Host "  Cloud Apps (no export needed — sign in):" -ForegroundColor Cyan
-    Write-Host "    - Spotify, Slack, Discord, Zoom, Teams: Sign in → data loads from cloud" -ForegroundColor Gray
+    Write-Host "  Cloud Apps (no export needed -- sign in):" -ForegroundColor Cyan
+    Write-Host "    - Spotify, Slack, Discord, Zoom, Teams: Sign in -> data loads from cloud" -ForegroundColor Gray
     Write-Host "    - Zoom local recordings: Copy from Documents\Zoom\ before wiping" -ForegroundColor Gray
     Write-Host ""
 
     Read-Host "  Press Enter for developer-specific tips..."
 
-    # ── DEVELOPER TIPS ──
+    # -- DEVELOPER TIPS --
     Write-Host ""
-    Write-Host "  ┌──────────────────────────────────────────────────────────┐" -ForegroundColor Blue
-    Write-Host "  │              DEVELOPER-SPECIFIC TIPS                      │" -ForegroundColor Blue
-    Write-Host "  └──────────────────────────────────────────────────────────┘" -ForegroundColor Blue
+    Write-Host "  +----------------------------------------------------------+" -ForegroundColor Blue
+    Write-Host "  |              DEVELOPER-SPECIFIC TIPS                      |" -ForegroundColor Blue
+    Write-Host "  +----------------------------------------------------------+" -ForegroundColor Blue
     Write-Host ""
     Write-Host "  Git & SSH:" -ForegroundColor Cyan
     Write-Host "    - Copy .gitconfig to new laptop: %USERPROFILE%\.gitconfig" -ForegroundColor Gray
@@ -3671,7 +4023,7 @@ function Show-ManualTips {
     Write-Host "    - Install Python via winget: winget install Python.Python.3.12" -ForegroundColor Gray
     Write-Host "    - User packages: pip list --user (note them, reinstall)" -ForegroundColor Gray
     Write-Host "    - Per-project: pip install -r requirements.txt" -ForegroundColor Gray
-    Write-Host "    - Virtual environments: Never copy .venv — recreate fresh" -ForegroundColor Gray
+    Write-Host "    - Virtual environments: Never copy .venv -- recreate fresh" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  Java / Maven:" -ForegroundColor Cyan
     Write-Host "    - Install JDK: winget install EclipseAdoptium.Temurin.21.JDK" -ForegroundColor Gray
@@ -3685,9 +4037,9 @@ function Show-ManualTips {
     Write-Host ""
     Write-Host "  Docker:" -ForegroundColor Cyan
     Write-Host "    - Install: winget install Docker.DockerDesktop" -ForegroundColor Gray
-    Write-Host "    - Images DON'T transfer — pull them again (docker pull)" -ForegroundColor Gray
+    Write-Host "    - Images DON'T transfer -- pull them again (docker pull)" -ForegroundColor Gray
     Write-Host "    - Volumes: Export important data first (docker cp or volume backup)" -ForegroundColor Gray
-    Write-Host "    - docker-compose.yml files: These ARE your project files — just copy" -ForegroundColor Gray
+    Write-Host "    - docker-compose.yml files: These ARE your project files -- just copy" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  Environment Variables:" -ForegroundColor Cyan
     Write-Host "    - Check current: [Environment]::GetEnvironmentVariables('User')" -ForegroundColor Gray
@@ -3711,17 +4063,16 @@ function Show-ManualTips {
     Write-Host "    - Redis: Copy dump.rdb" -ForegroundColor Gray
     Write-Host ""
 
-    # ── BEFORE YOU FORMAT CHECKLIST ──
-    Write-Host "  ┌──────────────────────────────────────────────────────────┐" -ForegroundColor Red
-    Write-Host "  │          BEFORE YOU FORMAT — FINAL CHECKLIST              │" -ForegroundColor Red
-    Write-Host "  └──────────────────────────────────────────────────────────┘" -ForegroundColor Red
+    # -- BEFORE YOU FORMAT CHECKLIST --
+    Write-Host "  +----------------------------------------------------------+" -ForegroundColor Red
+    Write-Host "  |          BEFORE YOU FORMAT -- FINAL CHECKLIST              |" -ForegroundColor Red
+    Write-Host "  +----------------------------------------------------------+" -ForegroundColor Red
     Write-Host ""
     Write-Host "  Verify ALL of these on the NEW laptop before touching the old one:" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "    [ ] 2FA / Authenticator set up on new device" -ForegroundColor White
     Write-Host "    [ ] Password manager accessible on new laptop" -ForegroundColor White
     Write-Host "    [ ] Browser bookmarks & passwords visible" -ForegroundColor White
-    Write-Host "    [ ] Browser history present (if sync was ON — check edge://history)" -ForegroundColor White
     Write-Host "    [ ] Browser extensions installed (check after sign-in)" -ForegroundColor White
     Write-Host "    [ ] Email working (Outlook / Gmail)" -ForegroundColor White
     Write-Host "    [ ] OneDrive / cloud files syncing" -ForegroundColor White
@@ -3739,7 +4090,7 @@ function Show-ManualTips {
     Write-Host "  Wait at least 1-2 weeks before formatting the old laptop." -ForegroundColor Yellow
     Write-Host "  You always discover something you forgot after a few days." -ForegroundColor DarkGray
     Write-Host ""
-    Write-Host "  ──────────────────────────────────────────────────────────" -ForegroundColor DarkCyan
+    Write-Host "  ----------------------------------------------------------" -ForegroundColor DarkCyan
     Write-Host "  Created by gauravkhurana.com for the community" -ForegroundColor DarkCyan
     Write-Host "  Like this? Star the repo & share: github.com/gauravkhuraana/new-laptop-setup" -ForegroundColor DarkCyan
     Write-Host "  Connect: gauravkhurana.com/connect" -ForegroundColor DarkCyan
@@ -3747,39 +4098,39 @@ function Show-ManualTips {
     Write-Host ""
 }
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # SECTION 7: MAIN EXECUTION
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
-Write-Log "Migrate-Laptop started — Mode: $($script:ChosenMode)"
+Write-Log "Migrate-Laptop started -- Mode: $($script:ChosenMode)"
 Write-Log "Output directory: $OutputDir"
 
-# ── Mode: About ──
+# -- Mode: About --
 if ($script:ChosenMode -eq 'about') {
     Show-AboutTool
     exit 0
 }
 
-# ── Mode: Checklist ──
+# -- Mode: Checklist --
 if ($script:ChosenMode -eq 'checklist') {
     Show-PostMigrationChecklist
     Write-Log "Post-migration checklist completed."
     exit 0
 }
 
-# ── Mode: Tips ──
+# -- Mode: Tips --
 if ($script:ChosenMode -eq 'tips') {
     Show-ManualTips
     exit 0
 }
 
-# ── Mode: Cleanup ──
+# -- Mode: Cleanup --
 if ($script:ChosenMode -eq 'cleanup') {
     Start-OldLaptopCleanup
     exit 0
 }
 
-# ── Mode: Generate from cache ──
+# -- Mode: Generate from cache --
 if ($script:ChosenMode -eq 'generate') {
     if (-not $CacheFile) {
         # Find most recent cache
@@ -3802,19 +4153,22 @@ if ($script:ChosenMode -eq 'generate') {
     Write-Step "Generating Scripts from Cached Scan"
     Write-InstallScript   -ScriptPath (Join-Path $OutputDir "Install-Software.ps1") -ScanData $scanData
     Write-TransferScript  -ScriptPath (Join-Path $OutputDir "Transfer-Data.ps1")    -ScanData $scanData
+    Write-RestoreConfigsScript -ScriptPath (Join-Path $OutputDir "Restore-Configs.ps1") -ScanData $scanData
+    Write-VerifyTransferScript -ScriptPath (Join-Path $OutputDir "Verify-Transfer.ps1") -ScanData $scanData
     Write-AiReviewFile    -FilePath   (Join-Path $OutputDir "migration-for-ai-review.md") -ScanData $scanData
 
     Write-Host ""
-    Write-Host "  ✓ Scripts generated in: $OutputDir" -ForegroundColor Green
+    Write-Host "  [v] Scripts generated in: $OutputDir" -ForegroundColor Green
     Write-Host "  Review each script before running on the new laptop." -ForegroundColor Yellow
     Write-Host ""
     exit 0
 }
 
-# ── Mode: Scan (or Full) ──
+# -- Mode: Scan (or Full) --
 Write-Step "Phase 1: Scanning This Laptop"
+$script:ScanStartTime = Get-Date
 
-# Load System.Web for HTML encoding
+# Load System.Web for HTML encoding (PS 5.1 only; PS 7 uses System.Net.WebUtility via Get-HtmlEncoded)
 Add-Type -AssemblyName System.Web -ErrorAction SilentlyContinue
 
 $drives       = Get-DriveInfo
@@ -3850,7 +4204,7 @@ $scanData = @{
     Configs       = $configs
 }
 
-# Save cache and reload to normalize hashtables → PSCustomObject for report functions
+# Save cache and reload to normalize hashtables -> PSCustomObject for report functions
 $cachePath = Join-Path $OutputDir "scan-$($script:RunDate).json"
 Save-ScanCache -CachePath $cachePath -ScanData $scanData
 $scanData = Load-ScanCache -CachePath $cachePath
@@ -3862,10 +4216,14 @@ $htmlPath = Join-Path $OutputDir "scan-report-$($script:RunDate).html"
 Write-MarkdownReport -ReportPath $mdPath   -ScanData $scanData
 Write-HtmlReport     -ReportPath $htmlPath -ScanData $scanData
 
+$script:ScanElapsed = (Get-Date) - $script:ScanStartTime
+$scanElapsedText = if ($script:ScanElapsed.TotalMinutes -ge 1) { "{0}m {1}s" -f [int]$script:ScanElapsed.TotalMinutes, $script:ScanElapsed.Seconds } else { "{0}s" -f [int]$script:ScanElapsed.TotalSeconds }
+
 Write-Host ""
-Write-Host "  ╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
-Write-Host "  ║                Phase 1 Complete — Scan Done!                 ║" -ForegroundColor Green
-Write-Host "  ╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Green
+Write-Host "  +==============================================================+" -ForegroundColor Green
+Write-Host "  |                Phase 1 Complete -- Scan Done!                 |" -ForegroundColor Green
+Write-Host "  +==============================================================+" -ForegroundColor Green
+Write-Host "  Scan completed in $scanElapsedText" -ForegroundColor DarkGray
 Write-Host ""
 
 # Show what was found
@@ -3883,126 +4241,145 @@ Write-Host "    Configs:    $configFound configurations captured" -ForegroundCol
 Write-Host "    Folders:    $totalFolders data folders identified" -ForegroundColor White
 Write-Host ""
 Write-Host "  WHAT WAS CREATED (open these to verify):" -ForegroundColor Cyan
-Write-Host "    📊 HTML Report  → $htmlPath" -ForegroundColor White
-Write-Host "       Open in browser — interactive, searchable, with tabs for each section" -ForegroundColor DarkGray
-Write-Host "    📝 MD Report    → $mdPath" -ForegroundColor White
-Write-Host "       Same data in Markdown — readable in any text editor or GitHub" -ForegroundColor DarkGray
-Write-Host "    💾 Scan Cache   → $cachePath" -ForegroundColor White
-Write-Host "       Raw JSON data — use to regenerate scripts later without re-scanning" -ForegroundColor DarkGray
-Write-Host "    📋 Log File     → $($script:LogFilePath)" -ForegroundColor White
+Write-Host "    [chart] HTML Report  -> $htmlPath" -ForegroundColor White
+Write-Host "       Open in browser -- interactive, searchable, with tabs for each section" -ForegroundColor DarkGray
+Write-Host "    [note] MD Report    -> $mdPath" -ForegroundColor White
+Write-Host "       Same data in Markdown -- readable in any text editor or GitHub" -ForegroundColor DarkGray
+Write-Host "    [save] Scan Cache   -> $cachePath" -ForegroundColor White
+Write-Host "       Raw JSON data -- use to regenerate scripts later without re-scanning" -ForegroundColor DarkGray
+Write-Host "    [list] Log File     -> $($script:LogFilePath)" -ForegroundColor White
 Write-Host "       Detailed log of everything the scan did, step by step" -ForegroundColor DarkGray
 Write-Host ""
-Write-Host "  ┌──────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
-Write-Host "  │  ⚠  SENSITIVE DATA NOTICE                               │" -ForegroundColor Yellow
-Write-Host "  ├──────────────────────────────────────────────────────────┤" -ForegroundColor Yellow
-Write-Host "  │  The scan results may contain sensitive information:     │" -ForegroundColor Yellow
-Write-Host "  │    • Environment variables (could have API keys/tokens)  │" -ForegroundColor Yellow
-Write-Host "  │    • .gitconfig (could have credential helpers/tokens)   │" -ForegroundColor Yellow
-Write-Host "  │    • PowerShell profile (could have secrets)             │" -ForegroundColor Yellow
-Write-Host "  │    • WiFi network names                                 │" -ForegroundColor Yellow
-Write-Host "  │                                                          │" -ForegroundColor Yellow
-Write-Host "  │  Review generated scripts before sharing or uploading.   │" -ForegroundColor Yellow
-Write-Host "  │  Never commit migration-output/ to a public Git repo.    │" -ForegroundColor Yellow
-Write-Host "  └──────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
+Write-Host "  +----------------------------------------------------------+" -ForegroundColor Yellow
+Write-Host "  |  [!]  SENSITIVE DATA NOTICE                               |" -ForegroundColor Yellow
+Write-Host "  +----------------------------------------------------------+" -ForegroundColor Yellow
+Write-Host "  |  The scan results may contain sensitive information:     |" -ForegroundColor Yellow
+Write-Host "  |    * Environment variables (could have API keys/tokens)  |" -ForegroundColor Yellow
+Write-Host "  |    * .gitconfig (could have credential helpers/tokens)   |" -ForegroundColor Yellow
+Write-Host "  |    * PowerShell profile (could have secrets)             |" -ForegroundColor Yellow
+Write-Host "  |    * WiFi network names                                 |" -ForegroundColor Yellow
+Write-Host "  |                                                          |" -ForegroundColor Yellow
+Write-Host "  |  Review generated scripts before sharing or uploading.   |" -ForegroundColor Yellow
+Write-Host "  |  Never commit migration-output/ to a public Git repo.    |" -ForegroundColor Yellow
+Write-Host "  +----------------------------------------------------------+" -ForegroundColor Yellow
 Write-Host ""
 
-# ── Scan-only stops here ──
+# Offer to open the HTML report in browser
+$openReport = Read-Host "  Open the HTML report in your browser now? [Y/n]"
+if ($openReport -notmatch '^[nN]') {
+    Start-Process $htmlPath
+}
+Write-Host ""
+
+# -- Scan-only stops here --
 if ($script:ChosenMode -eq 'scan') {
-    Write-Host "  Scan-only mode — review the reports, then re-run to generate scripts." -ForegroundColor Yellow
+    Write-Host "  Scan-only mode -- review the reports, then re-run to generate scripts." -ForegroundColor Yellow
     Write-Host "  Use: .\Migrate-Laptop.ps1 -FromCache" -ForegroundColor Yellow
     Write-Host ""
     Write-Log "Scan-only mode completed."
     exit 0
 }
 
-# ── Full mode: also generate scripts ──
+# -- Full mode: also generate scripts --
 Write-Step "Phase 2: Generating Migration Scripts"
 Write-InstallScript        -ScriptPath (Join-Path $OutputDir "Install-Software.ps1")  -ScanData $scanData
 Write-TransferScript       -ScriptPath (Join-Path $OutputDir "Transfer-Data.ps1")     -ScanData $scanData
+Write-RestoreConfigsScript -ScriptPath (Join-Path $OutputDir "Restore-Configs.ps1")   -ScanData $scanData
+Write-VerifyTransferScript  -ScriptPath (Join-Path $OutputDir "Verify-Transfer.ps1")   -ScanData $scanData
 Write-AiReviewFile         -FilePath   (Join-Path $OutputDir "migration-for-ai-review.md") -ScanData $scanData
 
 Write-Host ""
-Write-Host "  ╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
-Write-Host "  ║          Phase 2 Complete — Scripts Ready!                   ║" -ForegroundColor Green
-Write-Host "  ╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Green
+Write-Host "  +==============================================================+" -ForegroundColor Green
+Write-Host "  |          Phase 2 Complete -- Scripts Ready!                   |" -ForegroundColor Green
+Write-Host "  +==============================================================+" -ForegroundColor Green
 Write-Host ""
 Write-Host "  Nothing was installed, copied, or deleted. You are in control." -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "  WHAT WAS GENERATED (open these to review before running):" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "    📦 Install-Software.ps1" -ForegroundColor White
-Write-Host "       Open this file → see every app that will be installed via winget" -ForegroundColor DarkGray
+Write-Host "    [pkg] Install-Software.ps1" -ForegroundColor White
+Write-Host "       Open this file -> see every app that will be installed via winget" -ForegroundColor DarkGray
 Write-Host "       Comment out (#) any app you don't want. Run on NEW laptop." -ForegroundColor DarkGray
 Write-Host ""
-Write-Host "    📂 Transfer-Data.ps1" -ForegroundColor White
-Write-Host "       Open this file → see every folder that will be copied" -ForegroundColor DarkGray
+Write-Host "    [dir] Transfer-Data.ps1" -ForegroundColor White
+Write-Host "       Open this file -> see every folder that will be copied" -ForegroundColor DarkGray
 Write-Host "       Shows sizes, OneDrive status, drive layout. Run on OLD laptop." -ForegroundColor DarkGray
 Write-Host ""
-Write-Host "    🤖 migration-for-ai-review.md" -ForegroundColor White
-Write-Host "       Open this file → paste into ChatGPT/Copilot for personalized advice" -ForegroundColor DarkGray
+Write-Host "    [gear]  Restore-Configs.ps1" -ForegroundColor White
+Write-Host "       Open this file -> see your .gitconfig, env vars, VS Code extensions" -ForegroundColor DarkGray
+Write-Host "       Check for secrets/tokens before transferring! Run on NEW laptop." -ForegroundColor DarkGray
 Write-Host ""
-Write-Host "    📊 scan-report-$($script:RunDate).html" -ForegroundColor White
-Write-Host "       Open in browser → interactive dashboard of everything found" -ForegroundColor DarkGray
+Write-Host "    [bot] migration-for-ai-review.md" -ForegroundColor White
+Write-Host "       Open this file -> paste into ChatGPT/Copilot for personalized advice" -ForegroundColor DarkGray
+Write-Host ""
+Write-Host "    [check] Verify-Transfer.ps1" -ForegroundColor White
+Write-Host "       Compares source vs destination folder counts after transfer" -ForegroundColor DarkGray
+Write-Host "       Run on OLD laptop after Transfer-Data.ps1 completes." -ForegroundColor DarkGray
+Write-Host ""
+Write-Host "    [chart] scan-report-$($script:RunDate).html" -ForegroundColor White
+Write-Host "       Open in browser -> interactive dashboard of everything found" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "  All files are in: $OutputDir" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  NEXT STEPS:" -ForegroundColor Cyan
-Write-Host "    1. Open and review each .ps1 file — they are plain readable scripts" -ForegroundColor White
+Write-Host "    1. Open and review each .ps1 file -- they are plain readable scripts" -ForegroundColor White
 Write-Host "    2. Transfer the migration-output folder to the new laptop (see below)" -ForegroundColor White
 Write-Host "    3. Run scripts one at a time (each asks confirmation before acting)" -ForegroundColor White
-Write-Host "    4. Verify: .\Migrate-Laptop.ps1 → option [6] Post-Migration Checklist" -ForegroundColor White
+Write-Host "    4. Verify: .\Migrate-Laptop.ps1 -> option [6] Post-Migration Checklist" -ForegroundColor White
 Write-Host ""
 Write-Host "  HOW TO TRANSFER migration-output TO THE NEW LAPTOP:" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "   Option A — USB / External Drive (simplest)" -ForegroundColor White
+Write-Host "   Option A -- USB / External Drive (simplest)" -ForegroundColor White
 Write-Host "     Copy the migration-output folder to a USB drive, plug into new laptop." -ForegroundColor DarkGray
 Write-Host ""
-Write-Host "   Option B — Shared Network Folder" -ForegroundColor White
-Write-Host "     On OLD laptop: Right-click migration-output → Properties → Sharing → Share" -ForegroundColor DarkGray
+Write-Host "   Option B -- Shared Network Folder" -ForegroundColor White
+Write-Host "     On OLD laptop: Right-click migration-output -> Properties -> Sharing -> Share" -ForegroundColor DarkGray
 Write-Host "     On NEW laptop: Open \\$($env:COMPUTERNAME)\migration-output in Explorer" -ForegroundColor DarkGray
 Write-Host "     Both laptops must be on the same Wi-Fi / network." -ForegroundColor DarkGray
 Write-Host ""
-Write-Host "   Option C — Cloud Sync (OneDrive, Google Drive, Dropbox)" -ForegroundColor White
+Write-Host "   Option C -- Cloud Sync (OneDrive, Google Drive, Dropbox)" -ForegroundColor White
 Write-Host "     Copy migration-output into your synced cloud folder." -ForegroundColor DarkGray
 Write-Host "     Sign into the same cloud account on the new laptop and download." -ForegroundColor DarkGray
 Write-Host ""
-Write-Host "   ⚠  Scan data may contain env var values — avoid email/public links." -ForegroundColor Yellow
+Write-Host "   [!]  Restore-Configs.ps1 may contain secrets -- avoid email/public links." -ForegroundColor Yellow
 Write-Host ""
-Write-Host "  AFTER INSTALLING SOFTWARE — SIGN IN TO ENABLE SYNC:" -ForegroundColor Cyan
+Write-Host "  AFTER INSTALLING SOFTWARE -- SIGN IN TO ENABLE SYNC:" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "   App / Setting              What to do on NEW laptop" -ForegroundColor DarkGray
-Write-Host "   ─────────────────────────  ──────────────────────────────────────────" -ForegroundColor DarkGray
-Write-Host "   VS Code                    Ctrl+Shift+P → 'Settings Sync: Turn On'" -ForegroundColor White
+Write-Host "   -------------------------  ------------------------------------------" -ForegroundColor DarkGray
+Write-Host "   VS Code                    Ctrl+Shift+P -> 'Settings Sync: Turn On'" -ForegroundColor White
 Write-Host "                              Sign in with GitHub or Microsoft account" -ForegroundColor DarkGray
-Write-Host "   Chrome                     Sign in with Google account → sync starts" -ForegroundColor White
-Write-Host "   Edge                       Sign in with Microsoft account → sync starts" -ForegroundColor White
-Write-Host "   Firefox                    Sign in with Firefox account → sync starts" -ForegroundColor White
-Write-Host "   OneDrive                   Sign in → Desktop/Docs/Pictures sync back" -ForegroundColor White
-Write-Host "   Teams / Outlook            Sign in with work account → data loads" -ForegroundColor White
+Write-Host "   Chrome                     Sign in with Google account -> sync starts" -ForegroundColor White
+Write-Host "   Edge                       Sign in with Microsoft account -> sync starts" -ForegroundColor White
+Write-Host "   Firefox                    Sign in with Firefox account -> sync starts" -ForegroundColor White
+Write-Host "   OneDrive                   Sign in -> Desktop/Docs/Pictures sync back" -ForegroundColor White
+Write-Host "   Teams / Outlook            Sign in with work account -> data loads" -ForegroundColor White
 Write-Host "   Windows (theme/WiFi)       Already synced if using same Microsoft account" -ForegroundColor DarkGray
 Write-Host ""
-Write-Host "   These need MANUAL action:" -ForegroundColor Yellow
-Write-Host "   ─────────────────────────  ──────────────────────────────────────────" -ForegroundColor DarkGray
-Write-Host "   Git config (.gitconfig)    git config --global user.name/email" -ForegroundColor White
-Write-Host "   SSH keys                   Copy via USB → fix permissions (icacls)" -ForegroundColor White
-Write-Host "   Environment variables      Installers handle these — see scan report" -ForegroundColor White
-Write-Host "   PowerShell profile         Copy from old laptop if customized" -ForegroundColor White
-Write-Host "   npm/pip packages           Use per-project installs (venvs, npm install)" -ForegroundColor White
-Write-Host "   Outlook rules              File → Manage Rules → Import (.rwz file)" -ForegroundColor White
+Write-Host "   These need MANUAL action (scripts handle them):" -ForegroundColor Yellow
+Write-Host "   -------------------------  ------------------------------------------" -ForegroundColor DarkGray
+Write-Host "   Git config (.gitconfig)    Restored by Restore-Configs.ps1" -ForegroundColor White
+Write-Host "   SSH keys                   Copy via USB -> fix permissions (icacls)" -ForegroundColor White
+Write-Host "   Environment variables      Restored by Restore-Configs.ps1" -ForegroundColor White
+Write-Host "   PowerShell profile         Restored by Restore-Configs.ps1" -ForegroundColor White
+Write-Host "   npm/pip global packages    Restored by Restore-Configs.ps1" -ForegroundColor White
+Write-Host "   Outlook rules              File -> Manage Rules -> Import (.rwz file)" -ForegroundColor White
 Write-Host "   2FA / Authenticator        Transfer on phone BEFORE wiping old laptop" -ForegroundColor Red
 Write-Host ""
-Write-Host "  ┌──────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
-Write-Host "  │  ⚠  BEFORE YOU SHARE OR TRANSFER                        │" -ForegroundColor Yellow
-Write-Host "  ├──────────────────────────────────────────────────────────┤" -ForegroundColor Yellow
-Write-Host "  │  The scan JSON may contain sensitive info:              │" -ForegroundColor Yellow
-Write-Host "  │    • Environment variable values (could have API keys)    │" -ForegroundColor Yellow
-Write-Host "  │    • .gitconfig content (could have tokens)               │" -ForegroundColor Yellow
-Write-Host "  │                                                          │" -ForegroundColor Yellow
-Write-Host "  │  Review scan data before sharing or uploading.           │" -ForegroundColor Yellow
-Write-Host "  │  Never commit migration-output/ to a public Git repo.    │" -ForegroundColor Yellow
-Write-Host "  └──────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
+Write-Host "  +----------------------------------------------------------+" -ForegroundColor Yellow
+Write-Host "  |  [!]  BEFORE YOU SHARE OR TRANSFER                        |" -ForegroundColor Yellow
+Write-Host "  +----------------------------------------------------------+" -ForegroundColor Yellow
+Write-Host "  |  Restore-Configs.ps1 contains your actual configs:       |" -ForegroundColor Yellow
+Write-Host "  |    * .gitconfig content (check for tokens)               |" -ForegroundColor Yellow
+Write-Host "  |    * Environment variable values (check for API keys)    |" -ForegroundColor Yellow
+Write-Host "  |    * PowerShell profile (check for secrets)              |" -ForegroundColor Yellow
+Write-Host "  |                                                          |" -ForegroundColor Yellow
+Write-Host "  |  Open Restore-Configs.ps1 and remove any secrets before  |" -ForegroundColor Yellow
+Write-Host "  |  transferring to the new laptop.                         |" -ForegroundColor Yellow
+Write-Host "  |  Never commit migration-output/ to a public Git repo.    |" -ForegroundColor Yellow
+Write-Host "  +----------------------------------------------------------+" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "  ──────────────────────────────────────────────────────────" -ForegroundColor DarkCyan
+Write-Host "  ----------------------------------------------------------" -ForegroundColor DarkCyan
 Write-Host "  Created by gauravkhurana.com for the community" -ForegroundColor DarkCyan
 Write-Host "  Like this tool? Star the repo: github.com/gauravkhuraana/new-laptop-setup" -ForegroundColor DarkCyan
 Write-Host "  Connect: gauravkhurana.com/connect" -ForegroundColor DarkCyan
