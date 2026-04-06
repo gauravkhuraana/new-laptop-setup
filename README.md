@@ -20,14 +20,33 @@ Nothing is deleted or modified on your old laptop. Every script asks before doin
 
 ### 1. Download
 
-```powershell
-# Option A: Clone
-git clone https://github.com/gauravkhuraana/new-laptop-setup.git
-cd new-laptop-setup
+You only need one file: **Migrate-Laptop.ps1**. Pick whichever method is easiest for you.
 
-# Option B: Download just the script
+**Option A: Download directly from GitHub (easiest)**
+
+1. Create a folder on your desktop or any drive, e.g. `C:\Migration`
+2. Go to [**Migrate-Laptop.ps1**](https://github.com/gauravkhuraana/new-laptop-setup/blob/main/Migrate-Laptop.ps1)
+3. Click the **Download raw file** button (↓ icon, top-right of the file)
+4. Save it into your `C:\Migration` folder
+
+**Option B: Download using PowerShell**
+
+Open PowerShell and run:
+
+```powershell
+mkdir C:\Migration -ErrorAction SilentlyContinue
+cd C:\Migration
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/gauravkhuraana/new-laptop-setup/main/Migrate-Laptop.ps1" -OutFile "Migrate-Laptop.ps1"
 ```
+
+**Option C: Clone the repo (if you have Git installed)**
+
+```bash
+git clone https://github.com/gauravkhuraana/new-laptop-setup.git
+cd new-laptop-setup
+```
+
+> **Tip:** Keep everything in one folder. The script creates a `migration-output/` subfolder with all your reports and generated scripts.
 
 ### 2. Run on your OLD laptop
 
