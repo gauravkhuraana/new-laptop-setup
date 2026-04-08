@@ -224,6 +224,26 @@ function Format-Size {
     return "$Bytes B"
 }
 
+function Invoke-WithTimeout {
+    <# Runs a script block in a background job with a timeout (seconds).
+       Returns $null if the command times out or fails. #>
+    param(
+        [Parameter(Mandatory)] [scriptblock]$ScriptBlock,
+        [int]$TimeoutSeconds = 30,
+        [string]$Label = "command"
+    )
+    $job = Start-Job -ScriptBlock $ScriptBlock
+    $finished = $job | Wait-Job -Timeout $TimeoutSeconds
+    if ($null -eq $finished) {
+        Write-Log "$Label timed out after ${TimeoutSeconds}s -- skipping" -Level Warn
+        $job | Stop-Job -PassThru | Remove-Job -Force
+        return $null
+    }
+    $output = $job | Receive-Job 2>$null
+    $job | Remove-Job -Force
+    return $output
+}
+
 # ===========================================================================
 # SECTION 2: KNOWN SOFTWARE DATABASE
 # ===========================================================================
@@ -569,7 +589,7 @@ function Get-InstalledSoftware {
     if ($wingetAvailable) {
         Write-Log "Running winget list (this may take a moment)..." -Level Info
         try {
-            $wingetOutput = & winget list --accept-source-agreements 2>$null
+            $wingetOutput = Invoke-WithTimeout -Label "winget list" -TimeoutSeconds 60 -ScriptBlock { winget list --accept-source-agreements 2>$null }
             $headerFound = $false
             $nameEnd = 0; $idStart = 0; $idEnd = 0; $verStart = 0
             for ($lineIdx = 0; $lineIdx -lt $wingetOutput.Count; $lineIdx++) {
@@ -1037,7 +1057,8 @@ function Get-UserConfigs {
     $npmGlobal = @()
     if (Get-Command npm -ErrorAction SilentlyContinue) {
         try {
-            $npmOutput = & npm list -g --depth=0 --json 2>$null | ConvertFrom-Json
+            $npmRaw = Invoke-WithTimeout -Label "npm list" -TimeoutSeconds 30 -ScriptBlock { npm list -g --depth=0 --json 2>$null }
+            $npmOutput = $npmRaw | ConvertFrom-Json
             if ($npmOutput.dependencies) {
                 $npmOutput.dependencies.PSObject.Properties | ForEach-Object {
                     $npmGlobal += @{ Name = $_.Name; Version = $_.Value.version }
@@ -1056,7 +1077,8 @@ function Get-UserConfigs {
     $pipPackages = @()
     if (Get-Command pip -ErrorAction SilentlyContinue) {
         try {
-            $pipOutput = & pip list --user --format=json 2>$null | ConvertFrom-Json
+            $pipRaw = Invoke-WithTimeout -Label "pip list" -TimeoutSeconds 30 -ScriptBlock { pip list --user --format=json 2>$null }
+            $pipOutput = $pipRaw | ConvertFrom-Json
             foreach ($pkg in $pipOutput) {
                 $pipPackages += @{ Name = $pkg.name; Version = $pkg.version }
             }
@@ -1093,7 +1115,7 @@ function Get-UserConfigs {
     # Saved WiFi profiles (language-neutral: match lines with ":" that follow the header pattern)
     $wifiProfiles = @()
     try {
-        $wifiOutput = & netsh wlan show profiles 2>$null
+        $wifiOutput = Invoke-WithTimeout -Label "netsh wlan" -TimeoutSeconds 15 -ScriptBlock { netsh wlan show profiles 2>$null }
         if ($wifiOutput) {
             # netsh output varies by locale; profile lines always contain ":" with the name after the last ":"
             $wifiProfiles = @($wifiOutput | ForEach-Object {
@@ -1327,8 +1349,8 @@ function Get-UserConfigs {
     Write-Log "Scanning WSL distros..." -Level Info
     $wslDistros = @()
     try {
-        $wslOutput = & wsl --list --verbose 2>$null
-        if ($LASTEXITCODE -eq 0 -and $wslOutput) {
+        $wslOutput = Invoke-WithTimeout -Label "wsl list" -TimeoutSeconds 15 -ScriptBlock { wsl --list --verbose 2>$null }
+        if ($wslOutput) {
             # Skip header line, parse name + state + version
             $started = $false
             foreach ($line in $wslOutput) {
@@ -1384,7 +1406,7 @@ function Get-UserConfigs {
     if (Get-Command choco -ErrorAction SilentlyContinue) {
         Write-Log "Scanning Chocolatey packages..." -Level Info
         try {
-            $chocoOutput = & choco list --local-only --limit-output 2>$null
+            $chocoOutput = Invoke-WithTimeout -Label "choco list" -TimeoutSeconds 30 -ScriptBlock { choco list --local-only --limit-output 2>$null }
             foreach ($line in $chocoOutput) {
                 if ($line -match '^([^|]+)\|(.+)$') {
                     $chocoPackages += @{ Name = $Matches[1]; Version = $Matches[2] }
@@ -1404,7 +1426,7 @@ function Get-UserConfigs {
     if (Get-Command scoop -ErrorAction SilentlyContinue) {
         Write-Log "Scanning Scoop packages..." -Level Info
         try {
-            $scoopOutput = & scoop list 2>$null
+            $scoopOutput = Invoke-WithTimeout -Label "scoop list" -TimeoutSeconds 30 -ScriptBlock { scoop list 2>$null }
             # Scoop list outputs objects with Name, Version, Source columns
             if ($scoopOutput) {
                 foreach ($pkg in $scoopOutput) {
@@ -1475,7 +1497,7 @@ function Get-UserConfigs {
     # Credential Manager summary (count only, no secrets)
     $credCount = 0
     try {
-        $credOutput = & cmdkey /list 2>$null
+        $credOutput = Invoke-WithTimeout -Label "cmdkey list" -TimeoutSeconds 15 -ScriptBlock { cmdkey /list 2>$null }
         if ($credOutput) {
             $credCount = @($credOutput | Select-String 'Target:').Count
         }
@@ -1494,14 +1516,14 @@ function Get-UserConfigs {
     if (Get-Command docker -ErrorAction SilentlyContinue) {
         Write-Log "Scanning Docker images/volumes..." -Level Info
         try {
-            $imgOutput = & docker image ls --format "{{.Repository}}:{{.Tag}} ({{.Size}})" 2>$null
-            if ($LASTEXITCODE -eq 0 -and $imgOutput) {
+            $imgOutput = Invoke-WithTimeout -Label "docker image ls" -TimeoutSeconds 15 -ScriptBlock { docker image ls --format "{{.Repository}}:{{.Tag}} ({{.Size}})" 2>$null }
+            if ($imgOutput) {
                 $dockerImages = @($imgOutput | Where-Object { $_ -and $_ -notmatch '<none>' })
             }
         } catch { }
         try {
-            $volOutput = & docker volume ls --format "{{.Name}}" 2>$null
-            if ($LASTEXITCODE -eq 0 -and $volOutput) {
+            $volOutput = Invoke-WithTimeout -Label "docker volume ls" -TimeoutSeconds 15 -ScriptBlock { docker volume ls --format "{{.Name}}" 2>$null }
+            if ($volOutput) {
                 $dockerVolumes = @($volOutput | Where-Object { $_ })
             }
         } catch { }
