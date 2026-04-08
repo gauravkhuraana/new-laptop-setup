@@ -51,8 +51,13 @@ cd new-laptop-setup
 ### 2. Run on your OLD laptop
 
 ```powershell
+# First time only: unblock the downloaded file
+Unblock-File .\Migrate-Laptop.ps1
+
 .\Migrate-Laptop.ps1
 ```
+
+> **Getting a "not digitally signed" error?** See [Troubleshooting](#troubleshooting) below.
 
 A menu appears — pick **[3] Scan & Prepare**. It takes 1–2 minutes.
 
@@ -111,6 +116,27 @@ After scanning, a `migration-output/` folder is created with:
 
 ---
 
+## Security & Privacy
+
+The script is **read-only** on your old laptop and never collects or transfers secrets.
+
+| Item | What's captured | What's NOT captured |
+|------|----------------|---------------------|
+| **Environment variables** | Names only (with `<your-value>` placeholders) | Actual values — set manually from your password manager |
+| **SSH keys** | File names listed; flagged for manual transfer | Key contents — never read or copied |
+| **Windows Credential Manager** | Count of saved credentials | Actual credentials or passwords |
+| **Browser passwords** | Not touched | Passwords, cookies, or session tokens |
+| **Browser bookmarks** | Detected (sign-in syncs them) | Bookmark data is not exported |
+| **WiFi networks** | Profile names only | Passwords or security keys |
+| **Git config** | User name and email | Tokens, credentials, or credential helpers |
+| **Docker** | Image names and volume names | Image layers or volume data |
+| **Hosts file** | Custom entries listed in report | Not auto-restored (requires admin) |
+| **WSL distros** | Distro names listed | File system contents — export manually |
+
+> **TL;DR** — Names, counts, and metadata only. No passwords, tokens, keys, or secret values ever leave your machine through this script.
+
+---
+
 ## Resume Support
 
 If any script is interrupted (network drop, laptop sleeps, you close the window), just re-run it. Completed steps are saved in a `*-progress.json` file and automatically skipped. To start fresh, delete the progress file.
@@ -159,6 +185,35 @@ After transferring projects, rebuild dependencies fresh: `npm install`, `pip ins
 - **PowerShell 5.1+** (built-in) or PowerShell 7
 - **winget** (built into Windows 10/11 — used by Install-Software.ps1)
 - No admin rights needed for scanning. Admin needed only for hosts file restore.
+
+---
+
+## Troubleshooting
+
+<details><summary><strong>"File is not digitally signed" / UnauthorizedAccess error</strong></summary>
+
+Windows blocks scripts downloaded from the internet. Fix it with **any one** of these:
+
+**Option A: Unblock the file (recommended)**
+```powershell
+Unblock-File .\Migrate-Laptop.ps1
+.\Migrate-Laptop.ps1
+```
+
+**Option B: Bypass execution policy for this session only**
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Migrate-Laptop.ps1
+```
+
+**Option C: Allow local scripts permanently (current user)**
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+Unblock-File .\Migrate-Laptop.ps1
+.\Migrate-Laptop.ps1
+```
+
+**Why does this happen?** Windows marks files downloaded from the internet with a security flag (Zone Identifier). The default execution policy (`Restricted` or `AllSigned`) blocks these scripts. `Unblock-File` removes the flag; `-ExecutionPolicy Bypass` skips the check entirely for that session.
+</details>
 
 ---
 
