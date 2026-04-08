@@ -232,16 +232,21 @@ function Invoke-WithTimeout {
         [int]$TimeoutSeconds = 30,
         [string]$Label = "command"
     )
-    $job = Start-Job -ScriptBlock $ScriptBlock
-    $finished = $job | Wait-Job -Timeout $TimeoutSeconds
-    if ($null -eq $finished) {
-        Write-Log "$Label timed out after ${TimeoutSeconds}s -- skipping" -Level Warn
-        $job | Stop-Job -PassThru | Remove-Job -Force
+    try {
+        $job = Start-Job -ScriptBlock $ScriptBlock
+        $finished = $job | Wait-Job -Timeout $TimeoutSeconds
+        if ($null -eq $finished) {
+            Write-Log "$Label timed out after ${TimeoutSeconds}s -- skipped (won't appear in report)" -Level Warn
+            $job | Stop-Job -PassThru | Remove-Job -Force
+            return $null
+        }
+        $output = $job | Receive-Job 2>$null
+        $job | Remove-Job -Force
+        return $output
+    } catch {
+        Write-Log "$Label failed: $($_.Exception.Message) -- skipped" -Level Warn
         return $null
     }
-    $output = $job | Receive-Job 2>$null
-    $job | Remove-Job -Force
-    return $output
 }
 
 # ===========================================================================
@@ -1510,32 +1515,14 @@ function Get-UserConfigs {
     }
     if ($credCount -gt 0) { Write-Log "Credential Manager: $credCount saved credentials" -Level Success }
 
-    # Docker images and volumes (if Docker is running)
-    $dockerImages = @()
-    $dockerVolumes = @()
-    if (Get-Command docker -ErrorAction SilentlyContinue) {
-        Write-Log "Scanning Docker images/volumes..." -Level Info
-        try {
-            $imgOutput = Invoke-WithTimeout -Label "docker image ls" -TimeoutSeconds 15 -ScriptBlock { docker image ls --format "{{.Repository}}:{{.Tag}} ({{.Size}})" 2>$null }
-            if ($imgOutput) {
-                $dockerImages = @($imgOutput | Where-Object { $_ -and $_ -notmatch '<none>' })
-            }
-        } catch { }
-        try {
-            $volOutput = Invoke-WithTimeout -Label "docker volume ls" -TimeoutSeconds 15 -ScriptBlock { docker volume ls --format "{{.Name}}" 2>$null }
-            if ($volOutput) {
-                $dockerVolumes = @($volOutput | Where-Object { $_ })
-            }
-        } catch { }
-    }
+    # Docker -- detect if installed (don't query daemon, it can hang if not running)
+    $dockerInstalled = $null -ne (Get-Command docker -ErrorAction SilentlyContinue)
     $configs["Docker"] = @{
         Name    = "Docker"
-        Images  = $dockerImages
-        Volumes = $dockerVolumes
-        Found   = ($dockerImages.Count -gt 0) -or ($dockerVolumes.Count -gt 0)
-        SyncNote = "Images: docker pull to re-download. Volumes: docker run --rm -v <vol>:/data -v /backup:/backup alpine tar czf /backup/vol.tar.gz /data"
+        Found   = $dockerInstalled
+        SyncNote = "Docker is installed. Images: re-pull on new laptop. Volumes with data: export manually before wiping. Run 'docker image ls' and 'docker volume ls' to review."
     }
-    if ($dockerImages.Count -gt 0) { Write-Log "Docker: $($dockerImages.Count) images, $($dockerVolumes.Count) volumes" -Level Success }
+    if ($dockerInstalled) { Write-Log "Docker detected -- images/volumes NOT scanned (run 'docker image ls' and 'docker volume ls' manually to review)" -Level Warn }
 
     return $configs
 }
@@ -1713,7 +1700,7 @@ function Write-MarkdownReport {
         @{ Label = "Installed printers";              Found = $ScanData.Configs.Printers.Found }
         @{ Label = "Mapped network drives";           Found = $ScanData.Configs.MappedDrives.Found }
         @{ Label = "WSL distributions";               Found = $ScanData.Configs.WSLDistros.Found }
-        @{ Label = "Docker images/volumes";           Found = $ScanData.Configs.Docker.Found }
+        @{ Label = "Docker installed (manage manually)"; Found = $ScanData.Configs.Docker.Found }
         @{ Label = "User-installed fonts";            Found = $ScanData.Configs.CustomFonts.Found }
         @{ Label = "Saved credentials (count)";       Found = $ScanData.Configs.CredentialManager.Found }
         @{ Label = "Windows settings (WiFi, mouse, theme)"; Found = $ScanData.Configs.WindowsSettings.Found }
@@ -1968,24 +1955,23 @@ function Write-MarkdownReport {
 
     # Docker
     if ($ScanData.Configs.Docker.Found) {
-        [void]$sb.AppendLine("## Docker ($($ScanData.Configs.Docker.Images.Count) images, $($ScanData.Configs.Docker.Volumes.Count) volumes)")
+        [void]$sb.AppendLine("## Docker (Manual Migration Required)")
         [void]$sb.AppendLine("")
-        if ($ScanData.Configs.Docker.Images.Count -gt 0) {
-            [void]$sb.AppendLine("**Images** (re-pull with ``docker pull``):")
-            foreach ($img in $ScanData.Configs.Docker.Images) {
-                [void]$sb.AppendLine("- ``$img``")
-            }
-            [void]$sb.AppendLine("")
-        }
-        if ($ScanData.Configs.Docker.Volumes.Count -gt 0) {
-            [void]$sb.AppendLine("**Volumes** (export data before wiping):")
-            foreach ($vol in $ScanData.Configs.Docker.Volumes) {
-                [void]$sb.AppendLine("- ``$vol``")
-            }
-            [void]$sb.AppendLine("")
-        }
-    }
-
+        [void]$sb.AppendLine("Docker is installed on this machine. Before wiping, review and export manually:")
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine('```powershell')
+        [void]$sb.AppendLine("# List your images")
+        [void]$sb.AppendLine("docker image ls")
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine("# List volumes (may contain database data)")
+        [void]$sb.AppendLine("docker volume ls")
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine("# Export a volume with important data")
+        [void]$sb.AppendLine('docker run --rm -v myvolume:/data -v ${PWD}:/backup alpine tar czf /backup/myvolume.tar.gz -C /data .')
+        [void]$sb.AppendLine('```')
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine("> **Note**: Images can be re-pulled. Volumes with database or persistent data should be exported. ``docker-compose.yml`` files in your project folders are transferred automatically.")
+        [void]$sb.AppendLine("")
     # Credential Manager
     if ($ScanData.Configs.CredentialManager.Found) {
         [void]$sb.AppendLine("## Credential Manager")
@@ -2277,7 +2263,7 @@ function Write-HtmlReport {
         @{ Label = "Installed printers"; Key = "Printers" }
         @{ Label = "Mapped network drives"; Key = "MappedDrives" }
         @{ Label = "WSL distributions"; Key = "WSLDistros" }
-        @{ Label = "Docker images/volumes"; Key = "Docker" }
+        @{ Label = "Docker installed (manage manually)"; Key = "Docker" }
         @{ Label = "User-installed fonts"; Key = "CustomFonts" }
         @{ Label = "Saved credentials (count)"; Key = "CredentialManager" }
         @{ Label = "Windows settings (WiFi, mouse, theme)"; Key = "WindowsSettings" }
@@ -2496,6 +2482,21 @@ function Write-HtmlReport {
             [void]$sb.AppendLine("$(Get-HtmlEncoded $entry)")
         }
         [void]$sb.AppendLine('</pre>')
+    }
+
+    # Docker
+    if ($ScanData.Configs.Docker.Found) {
+        [void]$sb.AppendLine('<h3 style="color:#f0f6fc;margin:16px 0 8px">Docker (Manual Migration Required)</h3>')
+        [void]$sb.AppendLine('<p style="color:#d29922;font-size:13px"><strong>&#9888; Docker is installed.</strong> Images and volumes are NOT scanned automatically. Review before wiping this laptop:</p>')
+        [void]$sb.AppendLine('<pre style="background:#161b22;padding:12px;border-radius:6px;overflow-x:auto;font-size:13px"># List your images (these can be re-pulled)')
+        [void]$sb.AppendLine('docker image ls')
+        [void]$sb.AppendLine('')
+        [void]$sb.AppendLine('# List volumes (may contain database or persistent data!)')
+        [void]$sb.AppendLine('docker volume ls')
+        [void]$sb.AppendLine('')
+        [void]$sb.AppendLine('# Export a volume with important data')
+        [void]$sb.AppendLine('docker run --rm -v myvolume:/data -v ${PWD}:/backup alpine tar czf /backup/myvolume.tar.gz -C /data .</pre>')
+        [void]$sb.AppendLine('<p style="color:#8b949e;font-size:12px;margin-top:4px">docker-compose.yml files in your project folders are transferred automatically via Transfer-Data.ps1.</p>')
     }
 
     [void]$sb.AppendLine('</div></div>')
@@ -4244,6 +4245,19 @@ Write-Host "  |  Review generated scripts before sharing or uploading.   |" -For
 Write-Host "  |  Never commit migration-output/ to a public Git repo.    |" -ForegroundColor Yellow
 Write-Host "  +----------------------------------------------------------+" -ForegroundColor Yellow
 Write-Host ""
+
+# Docker reminder (only if Docker is installed)
+if ($scanData.Configs.Docker.Found) {
+    Write-Host "  +----------------------------------------------------------+" -ForegroundColor Magenta
+    Write-Host "  |  [>]  DOCKER REMINDER                                    |" -ForegroundColor Magenta
+    Write-Host "  +----------------------------------------------------------+" -ForegroundColor Magenta
+    Write-Host "  |  Docker is installed. Before wiping this laptop, run:    |" -ForegroundColor Magenta
+    Write-Host "  |    docker image ls       (images can be re-pulled)       |" -ForegroundColor Magenta
+    Write-Host "  |    docker volume ls      (volumes may have data!)        |" -ForegroundColor Magenta
+    Write-Host "  |  See the report's Docker section for export commands.    |" -ForegroundColor Magenta
+    Write-Host "  +----------------------------------------------------------+" -ForegroundColor Magenta
+    Write-Host ""
+}
 
 # Offer to open the HTML report in browser
 $openReport = Read-Host "  Open the HTML report in your browser now? [Y/n]"
