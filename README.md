@@ -2,7 +2,7 @@
 
 **One script. Zero dependencies. Migrates your Windows laptop in minutes.**
 
-Run it on your old laptop → it scans everything → generates ready-to-run scripts → you run them on the new laptop. Done.
+Run it on your old laptop → it scans everything → generates ready-to-run scripts → you run them on the old/new laptop as guided. Done.
 
 ---
 
@@ -10,7 +10,7 @@ Run it on your old laptop → it scans everything → generates ready-to-run scr
 
 1. **Scans** your old laptop — installed software, configs, data folders, settings
 2. **Generates** scripts and reports you can review before running
-3. **You run** the scripts on your new laptop to install apps and transfer data
+3. **You run** the generated scripts on the correct laptop: install on NEW laptop, transfer/verify on OLD laptop
 
 Nothing is deleted or modified on your old laptop. Every script asks before doing anything.
 
@@ -260,12 +260,12 @@ Just re-run it. Each script tracks progress in a `*-progress.json` file. Complet
 
 <details><summary><strong>Can I re-run the scan?</strong></summary>
 
-Yes. Run `.\Migrate-Laptop.ps1` again and pick [3] or [4]. It overwrites the previous scan for the same date.
+Yes. Run `powershell -ExecutionPolicy Bypass -File .\Migrate-Laptop.ps1` again and pick [3] or [4]. It overwrites the previous scan for the same date.
 </details>
 
 <details><summary><strong>Can I generate scripts without re-scanning?</strong></summary>
 
-Yes — run `.\Migrate-Laptop.ps1 -FromCache`. It uses the saved JSON from your last scan.
+Yes — run `powershell -ExecutionPolicy Bypass -File .\Migrate-Laptop.ps1 -FromCache`. It uses the saved JSON from your last scan.
 </details>
 
 <details><summary><strong>Does it work with multiple drives (D:, E:, etc)?</strong></summary>

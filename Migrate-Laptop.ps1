@@ -244,6 +244,18 @@ function Format-Size {
     return "$Bytes B"
 }
 
+function Get-LocalFileSystemDrives {
+    # pwsh can expose pseudo drives like Temp:. Restrict to real lettered roots (C:\, D:\, ...).
+    return @(
+        Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue |
+            Where-Object {
+                ($_.Used -or $_.Free) -and
+                $_.Name -match '^[A-Za-z]$' -and
+                $_.Root -match '^[A-Za-z]:\\$'
+            }
+    )
+}
+
 function Invoke-WithTimeout {
     <# Runs a script block in a background job with a timeout (seconds).
        Returns $null if the command times out or fails. #>
@@ -505,7 +517,7 @@ $script:AppConfigTips = @(
 function Get-DriveInfo {
     Write-Step "Scanning Drives"
     $drives = @()
-    Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -or $_.Free } | ForEach-Object {
+    Get-LocalFileSystemDrives | ForEach-Object {
         $d = @{
             Name      = $_.Name
             Root      = $_.Root
@@ -579,7 +591,7 @@ function Get-UserProfileFolders {
 function Get-CustomDataFolders {
     Write-Step "Scanning for Custom Data Folders"
     $results = @()
-    $drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -or $_.Free }
+    $drives = Get-LocalFileSystemDrives
 
     foreach ($drive in $drives) {
         $root = $drive.Root
@@ -746,7 +758,7 @@ function Get-InstalledSoftware {
     $portableApps = @()
     $portableScanDirs = @()
     # Common portable app locations
-    $drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -or $_.Free }
+    $drives = Get-LocalFileSystemDrives
     foreach ($drv in $drives) {
         $root = $drv.Root
         # Check for PortableApps folder
@@ -1335,14 +1347,9 @@ function Get-UserConfigs {
     if ($locale) { Write-Log "Locale: $locale, Region: $region" -Level Info }
 
     # Taskbar settings
-    $taskbarPos = $null; $taskbarAutoHide = $null; $taskbarSmallIcons = $null
+    $tbAdvanced = $null
     try {
-        $tbReg = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StuckRects3' -ErrorAction SilentlyContinue
         $tbAdvanced = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -ErrorAction SilentlyContinue
-        if ($tbAdvanced) {
-            $taskbarSmallIcons = $tbAdvanced.TaskbarSmallIcons
-            $taskbarAutoHide = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StuckRects3' -ErrorAction SilentlyContinue).Settings
-        }
     } catch { }
     $winSettings["Taskbar"] = @{
         Name  = "Taskbar"
@@ -1393,7 +1400,7 @@ function Get-UserConfigs {
     if ($defaultBrowser) { Write-Log "Default browser: $defaultBrowser, PDF: $defaultPdf" -Level Info }
 
     # Power & sleep settings
-    $sleepAC = $null; $sleepDC = $null; $screenOffAC = $null
+    $sleepAC = $null; $screenOffAC = $null
     try {
         $sleepAC = (powercfg /query SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 2>$null | Select-String 'Current AC Power Setting Index:\s*0x([0-9a-fA-F]+)' | ForEach-Object { [int]("0x" + $_.Matches[0].Groups[1].Value) / 60 })
         $screenOffAC = (powercfg /query SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 2>$null | Select-String 'Current AC Power Setting Index:\s*0x([0-9a-fA-F]+)' | ForEach-Object { [int]("0x" + $_.Matches[0].Groups[1].Value) / 60 })
@@ -1530,11 +1537,29 @@ function Get-UserConfigs {
         Write-Log "Scanning Scoop packages..." -Level Info
         try {
             $scoopOutput = & scoop list 2>$null
-            # Scoop list outputs objects with Name, Version, Source columns
             if ($scoopOutput) {
                 foreach ($pkg in $scoopOutput) {
-                    if ($pkg.Name) {
-                        $scoopPackages += @{ Name = $pkg.Name; Version = $pkg.Version; Source = $pkg.Source }
+                    # Scoop output can be either objects or plain text depending on environment/version.
+                    if ($pkg -is [string]) {
+                        $line = $pkg.Trim()
+                        if (-not $line -or $line -match '^(Installed apps:|Name\s+Version\s+Source|[-\s]+)$') { continue }
+                        $parts = $line -split '\s{2,}'
+                        if ($parts.Count -ge 2) {
+                            $scoopPackages += @{
+                                Name    = $parts[0]
+                                Version = $parts[1]
+                                Source  = if ($parts.Count -ge 3) { $parts[2] } else { '' }
+                            }
+                        }
+                        continue
+                    }
+
+                    if ($pkg.PSObject.Properties['Name'] -and -not [string]::IsNullOrWhiteSpace([string]$pkg.Name)) {
+                        $scoopPackages += @{
+                            Name    = [string]$pkg.Name
+                            Version = [string]$pkg.Version
+                            Source  = [string]$pkg.Source
+                        }
                     }
                 }
             }
@@ -1632,7 +1657,7 @@ function Get-UserConfigs {
 function Save-ScanCache {
     param([string]$CachePath, $ScanData)
     Write-Log "Saving scan cache (serializing JSON)..." -Level Info
-    $ScanData | ConvertTo-Json -Depth 5 | Set-Content -Path $CachePath -Encoding UTF8
+    $ScanData | ConvertTo-Json -Depth 10 | Set-Content -Path $CachePath -Encoding UTF8
     Write-Log "Scan cache saved: $CachePath" -Level Success
 }
 
@@ -3684,7 +3709,7 @@ function Start-OldLaptopCleanup {
 
     # -- Step 2: Clean custom data folders on non-C drives --
     Write-Step "Step 2/9: Cleaning Custom Data Folders (D:\, E:\, etc.)"
-    $drives = Get-PSDrive -PSProvider FileSystem | Where-Object { ($_.Used -or $_.Free) -and $_.Root -ne 'C:\' }
+    $drives = @(Get-LocalFileSystemDrives | Where-Object { $_.Root -ne 'C:\' })
     foreach ($drive in $drives) {
         $root = $drive.Root
         # Skip temp drives
@@ -4290,7 +4315,9 @@ if ($script:ChosenMode -eq 'generate') {
 
     Write-Host ""
     Write-Host "  [v] Scripts generated in: $OutputDir" -ForegroundColor Green
-    Write-Host "  Review each script before running on the new laptop." -ForegroundColor Yellow
+    Write-Host "  Review each script before running:" -ForegroundColor Yellow
+    Write-Host "    - Install-Software.ps1 on NEW laptop" -ForegroundColor Yellow
+    Write-Host "    - Transfer-Data.ps1 and Verify-Transfer.ps1 on OLD laptop" -ForegroundColor Yellow
     Write-Host ""
     exit 0
 }
@@ -4412,7 +4439,7 @@ Write-Host ""
 # -- Scan-only stops here --
 if ($script:ChosenMode -eq 'scan') {
     Write-Host "  Scan-only mode -- review the reports, then re-run to generate scripts." -ForegroundColor Yellow
-    Write-Host "  Use: .\Migrate-Laptop.ps1 -FromCache" -ForegroundColor Yellow
+    Write-Host "  Use: powershell -ExecutionPolicy Bypass -File .\Migrate-Laptop.ps1 -FromCache" -ForegroundColor Yellow
     Write-Host ""
     Write-Log "Scan-only mode completed."
     exit 0
