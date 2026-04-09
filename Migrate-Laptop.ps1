@@ -191,7 +191,16 @@ function Write-Log {
     $line = "[$ts] [$tag] $Message"
     $color = switch ($Level) { "Warn" { "Yellow" } "Error" { "Red" } "Success" { "Green" } default { "Gray" } }
     Write-Host $line -ForegroundColor $color
-    if ($script:LogFilePath) { Add-Content -Path $script:LogFilePath -Value $line -Encoding UTF8 }
+    if ($script:LogFilePath) {
+        for ($attempt = 0; $attempt -lt 3; $attempt++) {
+            try {
+                [System.IO.File]::AppendAllText($script:LogFilePath, "$line`r`n", [System.Text.Encoding]::UTF8)
+                break
+            } catch [System.IO.IOException] {
+                Start-Sleep -Milliseconds (100 * ($attempt + 1))
+            }
+        }
+    }
 }
 
 function Write-Step {
@@ -252,6 +261,80 @@ function Invoke-WithTimeout {
 # ===========================================================================
 # SECTION 2: KNOWN SOFTWARE DATABASE
 # ===========================================================================
+
+# Noise filter -- Windows sub-components, runtimes, codecs, and helper entries
+# that clutter reports and should never be explicitly installed by users.
+# Applied during scan so all reports, summaries, and scripts are clean.
+$script:SoftwareNoisePattern = @'
+^(
+  # Python installer sub-components (the main "Python 3.x" entry is kept)
+  Python\s+\d+\.\d+\.\d+\s+(Add to Path|Core Interpreter|Development Libraries|Documentation|Executables|pip Bootstrap|Standard Library|Tcl/Tk Support|Test Suite)(\s*\(.*\))?
+
+  # Teams VDI / Citrix sub-components
+  |Microsoft Teams Meeting Add-in.*
+  |Microsoft Teams VDI.*
+  |Microsoft Teams SlimCoreVdi.*
+  |Citrix\s+(Desktop Lock|Workspace\(.*?\)|Inside|Authentication Manager|Secure Access.*|Browser Content.*|Web Helper)
+  |AppProtection(\s*\(Citrix\))?
+  |MTOP Client(\s*\(Citrix\))?
+  |Online Plug-in(\s*\(Citrix\))?
+  |Self-service Plug-in(\s*\(Citrix\))?
+  |deviceTRUST\s+ICA\s+Client.*
+
+  # Built-in Windows Store apps / inbox apps
+  |App Installer|Microsoft Store|Store Experience Host
+  |Get Help|Feedback Hub|Mail and Calendar
+  |Movies\s*&\s*TV|MSN Weather|News|Phone Link
+  |Quick Assist|Snipping Tool|Solitaire\s*&\s*Casual Games
+  |Windows\s+(Calculator|Camera|Clock|Media Player|Notepad|Security|Sound Recorder|Web Experience Pack|Advanced Settings|Alarms.*)
+  |Xbox\s*.*|Game Speech Window.*
+  |Widgets Platform Runtime|Cross Device Experience Host|Start Experiences App
+  |Microsoft\s+(Bing|Engagement Framework|Sticky Notes|Clipchamp)
+  |Microsoft\s+365\s+(companion apps|Copilot.*)
+  |Company Portal|WritingAssistant
+
+  # Media codecs / image extensions
+  |WebP Image Extension|Web Media Extensions
+  |HEIF Image Extension|AV1 Video Extension|MPEG-2 Video Extension
+  |VP9 Video Extensions|Raw Image Extension|AVC Encoder Video Extension
+
+  # Runtimes, redistributables, and frameworks (not user-installable)
+  |Microsoft Visual C\+\+\s+\d{4}.*Redistributable.*
+  |Microsoft Visual C\+\+\s+\d{4}.*Runtime.*
+  |Microsoft\s+\.NET\s+(Runtime|Host|Host FX Resolver)\s+-\s+\d+\.\d+.*
+  |Microsoft\s+Windows\s+Desktop\s+Runtime\s+-\s+\d+\.\d+.*
+  |Microsoft Edge WebView2 Runtime
+  |WindowsAppRuntime\..*|WinAppRuntime\..*
+  |Microsoft\.UI\.Xaml\..*
+
+  # Windows platform internals and agents
+  |Microsoft\s+(Update Health Tools|Device Inventory Agent|Intune Management Extension|EPM Agent)
+  |Configuration Manager Client
+  |Ink\.Handwriting\..*
+  |Speech Pack\s+.*
+  |OfficePushNotificationsUtility|Microsoft\.Office\.ActionsServer
+  |Local AI Manager for Microsoft 365
+  |UUP\s*\(.*\)|WinMLShared|PSTokenizer(Shared)?|OnnxRuntime|PSOnnxRuntime
+  |SessionManager|WindowsWorkload\..*|EpmShellExtension
+  |OneNote Virtual Printer
+
+  # OEM bloatware and hardware drivers (reinstall via Windows Update / OEM on new hardware)
+  |HP\s+(System Information|Insights.*|One Agent|Accessory WMI.*)
+  |AMD\s+(Chipset|GPIO|I2C|Interface|Wireless Button|PSP|SFH|PMF|PPM|MicroPEP|Install Manager|Settings)\s*(Driver|Drivers)?.*
+  |AMD_Chipset_Drivers
+  |Logi\s+RightSight.*
+
+  # Shell extensions and context menu handlers (not standalone apps)
+  |.*ContextMenu$|.*ShellExtension$|.*Shell\s+Extension$
+
+  # Corporate security agents (auto-deployed by IT, never user-installed)
+  |Illumio\s+VEN.*
+
+  # Background updater/service components (not user apps)
+  |Adobe\s+Refresh\s+Manager
+  |Poly\s+Lens\s+Control\s+Service
+)$
+'@ -replace '\s*#[^\n]*' -replace '\r?\n\s*', ''
 
 # Developer essentials -- name patterns (regex) mapped to winget IDs
 $script:DevEssentials = @(
@@ -353,7 +436,13 @@ $script:ExcludeFiles = @(
 $script:SystemFolders = @(
     'Windows', 'Program Files', 'Program Files (x86)',
     'ProgramData', '$Recycle.Bin', 'Recovery',
-    'System Volume Information', 'PerfLogs'
+    'System Volume Information', 'PerfLogs',
+    'Documents and Settings',     # Legacy junction point to C:\Users
+    'Boot',                        # System boot files
+    'Config.Msi',                  # Windows Installer temp
+    'MSOCache',                    # Office installer cache
+    'temp',                        # Root-level temp folders
+    'Logs'                         # Root-level log folders
 )
 
 # Software install folders on C: -- reinstalled via winget, not copied
@@ -461,7 +550,15 @@ function Get-UserProfileFolders {
         try {
             # Detect if folder is redirected to OneDrive (Known Folder Move / KFM)
             $isOneDrive = $folder.Path -imatch 'OneDrive'
-            $items = Get-ChildItem -Path $folder.Path -Recurse -Force -ErrorAction SilentlyContinue
+            $scanPath = $folder.Path
+            # Skip Temp folder inside user profile -- locked files, nothing to migrate
+            $excludeTemp = @()
+            if ($scanPath -ieq $env:USERPROFILE -or $scanPath.StartsWith($env:USERPROFILE)) {
+                $tempDir = Join-Path $env:LOCALAPPDATA 'Temp'
+                if (Test-Path $tempDir) { $excludeTemp = @($tempDir) }
+            }
+            $items = Get-ChildItem -Path $scanPath -Recurse -Force -ErrorAction SilentlyContinue |
+                Where-Object { $f = $_; -not ($excludeTemp | Where-Object { $f.FullName.StartsWith($_, [StringComparison]::OrdinalIgnoreCase) }) }
             $fileCount = @($items | Where-Object { -not $_.PSIsContainer }).Count
             $totalSize = ($items | Where-Object { -not $_.PSIsContainer } | Measure-Object -Property Length -Sum).Sum
             if ($null -eq $totalSize) { $totalSize = 0 }
@@ -533,7 +630,7 @@ function Get-CustomDataFolders {
                     }
                     Write-Log "  $($drive.Name):\$($folder.Name) -- $subCount subdirs, $fileCount top files" -Level Info
                 } catch {
-                    Write-Log "  $($drive.Name):\$($folder.Name) -- access denied or error" -Level Warn
+                    # Silently skip -- if we can't read it, we can't migrate it
                 }
             }
         } catch {
@@ -748,6 +845,14 @@ function Get-InstalledSoftware {
         }
     }
 
+    # Remove noise entries (Windows sub-components, runtimes, codecs, agents)
+    $preFilterCount = $software.Count
+    $noiseKeys = @($software.Keys | Where-Object { $software[$_].Name -match $script:SoftwareNoisePattern })
+    foreach ($key in $noiseKeys) { $software.Remove($key) }
+    if ($noiseKeys.Count -gt 0) {
+        Write-Log "Filtered out $($noiseKeys.Count) Windows sub-components/runtimes (from $preFilterCount to $($software.Count))" -Level Info
+    }
+
     $devCount = @($software.Values | Where-Object { $_.IsDev }).Count
     $genCount = @($software.Values | Where-Object { $_.IsGeneral }).Count
     $otherCount = $software.Count - $devCount - $genCount
@@ -769,15 +874,24 @@ function Get-UserConfigs {
     # Git config
     $gitConfigPath = Join-Path $userProfile ".gitconfig"
     if (Test-Path $gitConfigPath) {
+        $gcContent = Get-Content $gitConfigPath -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+        $gcUserName  = $null
+        $gcUserEmail = $null
+        if ($gcContent) {
+            if ($gcContent -match '(?m)^\s*name\s*=\s*(.+)$')  { $gcUserName  = $Matches[1].Trim() }
+            if ($gcContent -match '(?m)^\s*email\s*=\s*(.+)$') { $gcUserEmail = $Matches[1].Trim() }
+        }
         $configs["GitConfig"] = @{
-            Name = ".gitconfig"
-            Path = $gitConfigPath
-            Content = Get-Content $gitConfigPath -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
-            Found = $true
+            Name      = ".gitconfig"
+            Path      = $gitConfigPath
+            Content   = $gcContent
+            UserName  = $gcUserName
+            UserEmail = $gcUserEmail
+            Found     = $true
         }
         Write-Log ".gitconfig found at $gitConfigPath" -Level Success
     } else {
-        $configs["GitConfig"] = @{ Name = ".gitconfig"; Path = $gitConfigPath; Found = $false }
+        $configs["GitConfig"] = @{ Name = ".gitconfig"; Path = $gitConfigPath; Found = $false; UserName = $null; UserEmail = $null }
         Write-Log ".gitconfig not found" -Level Warn
     }
 
@@ -1025,31 +1139,21 @@ function Get-UserConfigs {
     # Scheduled Tasks (user-created only)
     $tasks = @()
     try {
-        # Use a background job with timeout -- Get-ScheduledTask can hang on some systems
-        $taskJob = Start-Job -ScriptBlock {
-            Get-ScheduledTask -ErrorAction SilentlyContinue | ForEach-Object {
-                $userId = $null
-                try { $userId = $_.Principal.UserId } catch { }
-                if ($userId -and $userId -notmatch 'SYSTEM|LOCAL SERVICE|NETWORK SERVICE' -and $_.TaskPath -notmatch '^\\Microsoft\\') {
-                    $stateStr = "Unknown"
-                    try { $stateStr = $_.State.ToString() } catch { }
-                    [PSCustomObject]@{
-                        TaskName    = $_.TaskName
-                        TaskPath    = $_.TaskPath
-                        State       = $stateStr
-                        Description = $_.Description
-                    }
+        $allTasks = @(Get-ScheduledTask -ErrorAction SilentlyContinue)
+        foreach ($t in $allTasks) {
+            $userId = $null
+            try { $userId = $t.Principal.UserId } catch { }
+            if ($userId -and $userId -notmatch 'SYSTEM|LOCAL SERVICE|NETWORK SERVICE' -and $t.TaskPath -notmatch '^\\Microsoft\\') {
+                $stateStr = "Unknown"
+                try { $stateStr = $t.State.ToString() } catch { }
+                $tasks += [PSCustomObject]@{
+                    TaskName    = $t.TaskName
+                    TaskPath    = $t.TaskPath
+                    State       = $stateStr
+                    Description = $t.Description
                 }
             }
         }
-        $taskResult = $taskJob | Wait-Job -Timeout 15
-        if ($taskResult) {
-            $tasks = @($taskJob | Receive-Job)
-        } else {
-            Write-Log "Scheduled tasks scan timed out -- skipping (Task Scheduler may be busy)" -Level Warn
-        }
-        Stop-Job $taskJob -ErrorAction SilentlyContinue
-        Remove-Job $taskJob -Force -ErrorAction SilentlyContinue
     } catch { }
     $configs["ScheduledTasks"] = @{
         Name  = "Scheduled Tasks"
@@ -1062,7 +1166,7 @@ function Get-UserConfigs {
     $npmGlobal = @()
     if (Get-Command npm -ErrorAction SilentlyContinue) {
         try {
-            $npmRaw = Invoke-WithTimeout -Label "npm list" -TimeoutSeconds 30 -ScriptBlock { npm list -g --depth=0 --json 2>$null }
+            $npmRaw = & npm list -g --depth=0 --json 2>$null
             $npmOutput = $npmRaw | ConvertFrom-Json
             if ($npmOutput.dependencies) {
                 $npmOutput.dependencies.PSObject.Properties | ForEach-Object {
@@ -1082,7 +1186,7 @@ function Get-UserConfigs {
     $pipPackages = @()
     if (Get-Command pip -ErrorAction SilentlyContinue) {
         try {
-            $pipRaw = Invoke-WithTimeout -Label "pip list" -TimeoutSeconds 30 -ScriptBlock { pip list --user --format=json 2>$null }
+            $pipRaw = & pip list --user --format=json 2>$null
             $pipOutput = $pipRaw | ConvertFrom-Json
             foreach ($pkg in $pipOutput) {
                 $pipPackages += @{ Name = $pkg.name; Version = $pkg.version }
@@ -1120,7 +1224,7 @@ function Get-UserConfigs {
     # Saved WiFi profiles (language-neutral: match lines with ":" that follow the header pattern)
     $wifiProfiles = @()
     try {
-        $wifiOutput = Invoke-WithTimeout -Label "netsh wlan" -TimeoutSeconds 15 -ScriptBlock { netsh wlan show profiles 2>$null }
+        $wifiOutput = & netsh wlan show profiles 2>$null
         if ($wifiOutput) {
             # netsh output varies by locale; profile lines always contain ":" with the name after the last ":"
             $wifiProfiles = @($wifiOutput | ForEach-Object {
@@ -1317,12 +1421,14 @@ function Get-UserConfigs {
         Found    = ($winSettings.Values | Where-Object { $_.Found }).Count -gt 0
     }
 
-    # Installed printers
+    # Installed printers (skip virtual/software printers that reinstall automatically)
     Write-Log "Scanning printers..." -Level Info
     $printers = @()
+    $virtualPrinterPattern = 'Microsoft Print to PDF|Microsoft XPS Document Writer|OneNote|Fax|Send to OneNote|Virtual Print|nul:'
     try {
         $printerList = Get-Printer -ErrorAction SilentlyContinue
         foreach ($p in $printerList) {
+            if ($p.Name -match $virtualPrinterPattern -or $p.DriverName -match $virtualPrinterPattern -or $p.PortName -eq 'nul:' -or $p.PortName -eq 'PORTPROMPT:') { continue }
             $printers += @{ Name = $p.Name; DriverName = $p.DriverName; PortName = $p.PortName; Shared = $p.Shared; Type = $p.Type.ToString() }
         }
     } catch { }
@@ -1411,7 +1517,7 @@ function Get-UserConfigs {
     if (Get-Command choco -ErrorAction SilentlyContinue) {
         Write-Log "Scanning Chocolatey packages..." -Level Info
         try {
-            $chocoOutput = Invoke-WithTimeout -Label "choco list" -TimeoutSeconds 30 -ScriptBlock { choco list --local-only --limit-output 2>$null }
+            $chocoOutput = & choco list --local-only --limit-output 2>$null
             foreach ($line in $chocoOutput) {
                 if ($line -match '^([^|]+)\|(.+)$') {
                     $chocoPackages += @{ Name = $Matches[1]; Version = $Matches[2] }
@@ -1431,7 +1537,7 @@ function Get-UserConfigs {
     if (Get-Command scoop -ErrorAction SilentlyContinue) {
         Write-Log "Scanning Scoop packages..." -Level Info
         try {
-            $scoopOutput = Invoke-WithTimeout -Label "scoop list" -TimeoutSeconds 30 -ScriptBlock { scoop list 2>$null }
+            $scoopOutput = & scoop list 2>$null
             # Scoop list outputs objects with Name, Version, Source columns
             if ($scoopOutput) {
                 foreach ($pkg in $scoopOutput) {
@@ -1502,7 +1608,7 @@ function Get-UserConfigs {
     # Credential Manager summary (count only, no secrets)
     $credCount = 0
     try {
-        $credOutput = Invoke-WithTimeout -Label "cmdkey list" -TimeoutSeconds 15 -ScriptBlock { cmdkey /list 2>$null }
+        $credOutput = & cmdkey /list 2>$null
         if ($credOutput) {
             $credCount = @($credOutput | Select-String 'Target:').Count
         }
@@ -1533,7 +1639,8 @@ function Get-UserConfigs {
 
 function Save-ScanCache {
     param([string]$CachePath, $ScanData)
-    $ScanData | ConvertTo-Json -Depth 10 | Set-Content -Path $CachePath -Encoding UTF8
+    Write-Log "Saving scan cache (serializing JSON)..." -Level Info
+    $ScanData | ConvertTo-Json -Depth 5 | Set-Content -Path $CachePath -Encoding UTF8
     Write-Log "Scan cache saved: $CachePath" -Level Success
 }
 
@@ -1544,6 +1651,53 @@ function Load-ScanCache {
         return $null
     }
     $data = Get-Content -Path $CachePath -Raw -Encoding UTF8 | ConvertFrom-Json
+
+    # ConvertFrom-Json collapses single-element JSON arrays into scalars.
+    # Re-wrap known array properties so .Count and array operations work reliably.
+    $data.Drives        = @($data.Drives)
+    $data.UserFolders   = @($data.UserFolders)
+    $data.CustomFolders = @($data.CustomFolders)
+    $data.Software      = @($data.Software)
+    if ($data.PSObject.Properties['PortableApps']) { $data.PortableApps = @($data.PortableApps) }
+
+    # Normalize nested config sub-arrays
+    $configArrays = @(
+        @('VSCode',            'Extensions')
+        @('VSCodeInsiders',    'Extensions')
+        @('Printers',          'Printers')
+        @('MappedDrives',      'Drives')
+        @('WSLDistros',        'Distros')
+        @('StartupPrograms',   'Items')
+        @('ChocoPackages',     'Packages')
+        @('ScoopPackages',     'Packages')
+        @('NpmGlobal',         'Packages')
+        @('PipPackages',       'Packages')
+        @('EnvVars',           'Variables')
+        @('OutlookSignatures', 'Signatures')
+        @('CustomFonts',       'Fonts')
+        @('HostsFile',         'CustomEntries')
+        @('OfficeAddins',      'Addins')
+        @('SSHKeys',           'Files')
+        @('ScheduledTasks',    'Tasks')
+    )
+    foreach ($pair in $configArrays) {
+        $section = $pair[0]; $prop = $pair[1]
+        try {
+            $cfg = $data.Configs.$section
+            if ($cfg -and $cfg.PSObject.Properties[$prop]) {
+                $cfg.$prop = @($cfg.$prop)
+            }
+        } catch { }
+    }
+
+    # Filter noise entries from cached software (same filter applied during live scan)
+    $preCount = $data.Software.Count
+    $data.Software = @($data.Software | Where-Object { $_.Name -notmatch $script:SoftwareNoisePattern })
+    $filtered = $preCount - $data.Software.Count
+    if ($filtered -gt 0) {
+        Write-Log "Filtered $filtered noise entries from cached software ($preCount -> $($data.Software.Count))" -Level Info
+    }
+
     Write-Log "Loaded scan cache from $CachePath" -Level Success
     return $data
 }
@@ -1972,6 +2126,8 @@ function Write-MarkdownReport {
         [void]$sb.AppendLine("")
         [void]$sb.AppendLine("> **Note**: Images can be re-pulled. Volumes with database or persistent data should be exported. ``docker-compose.yml`` files in your project folders are transferred automatically.")
         [void]$sb.AppendLine("")
+    }
+
     # Credential Manager
     if ($ScanData.Configs.CredentialManager.Found) {
         [void]$sb.AppendLine("## Credential Manager")
@@ -1992,8 +2148,10 @@ function Write-MarkdownReport {
         [void]$sb.AppendLine("### Git Config")
         [void]$sb.AppendLine("")
         [void]$sb.AppendLine('```powershell')
-        if ($gc.UserName)  { [void]$sb.AppendLine("git config --global user.name `"$($gc.UserName)`"") }
-        if ($gc.UserEmail) { [void]$sb.AppendLine("git config --global user.email `"$($gc.UserEmail)`"") }
+        $gcUN = if ($gc.PSObject.Properties['UserName'])  { $gc.UserName }  else { $null }
+        $gcUE = if ($gc.PSObject.Properties['UserEmail']) { $gc.UserEmail } else { $null }
+        if ($gcUN)  { [void]$sb.AppendLine("git config --global user.name `"$gcUN`"") }
+        if ($gcUE) { [void]$sb.AppendLine("git config --global user.email `"$gcUE`"") }
         [void]$sb.AppendLine('```')
         [void]$sb.AppendLine("")
         [void]$sb.AppendLine("> Your full .gitconfig is captured in the scan data. Copy manually if you have additional settings (aliases, diff tools, etc.)")
@@ -2197,8 +2355,8 @@ function Write-HtmlReport {
     [void]$sb.AppendLine('  <div class="tab" onclick="showTab(''configs'')">Configs</div>')
     [void]$sb.AppendLine('  <div class="tab" onclick="showTab(''folders'')">Data Folders</div>')
     [void]$sb.AppendLine('  <div class="tab" onclick="showTab(''checklist'')">Manual Steps</div>')
-    [void]$sb.AppendLine('  <div class="tab" onclick="showTab(''restore'')">&amp;#128295; Restoration Guide</div>')
-    [void]$sb.AppendLine('  <div class="tab" onclick="showTab(''nextsteps'')">&amp;#127937; Next Steps</div>')
+    [void]$sb.AppendLine('  <div class="tab" onclick="showTab(''restore'')">&#128295; Restoration Guide</div>')
+    [void]$sb.AppendLine('  <div class="tab" onclick="showTab(''nextsteps'')">&#127937; Next Steps</div>')
     [void]$sb.AppendLine('</div>')
 
     # Tab: Drives
@@ -2390,15 +2548,15 @@ function Write-HtmlReport {
 
     # Tab: Restoration Guide
     [void]$sb.AppendLine('<div id="tab-restore" class="tab-content">')
-    [void]$sb.AppendLine('<h2>&amp;#128295; Restoration Guide</h2>')
+    [void]$sb.AppendLine('<h2>&#128295; Restoration Guide</h2>')
     [void]$sb.AppendLine('<div class="section">')
     [void]$sb.AppendLine('<p style="color:#8b949e;margin-bottom:16px">Follow these steps on your <strong>new laptop</strong> after running Install-Software.ps1 and Transfer-Data.ps1. No secrets are stored in these reports.</p>')
 
     # Git config
     if ($ScanData.Configs.GitConfig.Found) {
         [void]$sb.AppendLine('<h3 style="color:#f0f6fc;margin:16px 0 8px">Git Config</h3>')
-        $gcName = if ($ScanData.Configs.GitConfig.UserName) { Get-HtmlEncoded $ScanData.Configs.GitConfig.UserName } else { "&lt;your-name&gt;" }
-        $gcEmail = if ($ScanData.Configs.GitConfig.UserEmail) { Get-HtmlEncoded $ScanData.Configs.GitConfig.UserEmail } else { "&lt;your-email&gt;" }
+        $gcName = if ($ScanData.Configs.GitConfig.PSObject.Properties['UserName'] -and $ScanData.Configs.GitConfig.UserName) { Get-HtmlEncoded $ScanData.Configs.GitConfig.UserName } else { "&lt;your-name&gt;" }
+        $gcEmail = if ($ScanData.Configs.GitConfig.PSObject.Properties['UserEmail'] -and $ScanData.Configs.GitConfig.UserEmail) { Get-HtmlEncoded $ScanData.Configs.GitConfig.UserEmail } else { "&lt;your-email&gt;" }
         [void]$sb.AppendLine("<pre style=`"background:#161b22;padding:12px;border-radius:6px;overflow-x:auto;font-size:13px`">git config --global user.name `"$gcName`"`ngit config --global user.email `"$gcEmail`"</pre>")
         [void]$sb.AppendLine('<p style="color:#8b949e;font-size:12px;margin-top:4px">Your full .gitconfig is in the scan data. Copy manually if you have aliases, diff tools, etc.</p>')
     }
@@ -2436,7 +2594,7 @@ function Write-HtmlReport {
             [void]$sb.AppendLine("<tr><td><code>$vName</code></td><td>Set value from your password manager or secrets vault</td></tr>")
         }
         [void]$sb.AppendLine('</tbody></table>')
-        [void]$sb.AppendLine('<p style="color:#d29922;font-size:12px;margin-top:4px">&amp;#9888; Variable values are NOT stored in this report for security.</p>')
+        [void]$sb.AppendLine('<p style="color:#d29922;font-size:12px;margin-top:4px">&#9888; Variable values are NOT stored in this report for security.</p>')
     }
 
     # PowerShell profile
@@ -2503,7 +2661,7 @@ function Write-HtmlReport {
 
     # Tab: Next Steps
     [void]$sb.AppendLine('<div id="tab-nextsteps" class="tab-content">')
-    [void]$sb.AppendLine('<h2>&amp;#127937; Next Steps</h2>')
+    [void]$sb.AppendLine('<h2>&#127937; Next Steps</h2>')
     [void]$sb.AppendLine('<div class="section">')
     [void]$sb.AppendLine('<p style="color:#8b949e;margin-bottom:16px">Follow these steps on your <strong>new laptop</strong> to complete the migration. The generated scripts handle most of the work for you.</p>')
     $nextSteps = @(
@@ -2520,17 +2678,17 @@ function Write-HtmlReport {
     }
     [void]$sb.AppendLine('</div>')
     [void]$sb.AppendLine('<div class="section" style="margin-top:12px">')
-    [void]$sb.AppendLine('<h3 style="color:#f0f6fc;margin-bottom:8px;font-size:14px">&amp;#128640; How to Transfer migration-output to the New Laptop</h3>')
+    [void]$sb.AppendLine('<h3 style="color:#f0f6fc;margin-bottom:8px;font-size:14px">&#128640; How to Transfer migration-output to the New Laptop</h3>')
     [void]$sb.AppendLine('<p style="color:#8b949e;margin-bottom:12px">Pick whichever method is easiest for you. Both laptops need to see the same folder.</p>')
     [void]$sb.AppendLine('<table style="margin-bottom:0"><thead><tr><th>Method</th><th>How</th></tr></thead><tbody>')
-    [void]$sb.AppendLine('<tr><td><strong>&amp;#128190; USB / External Drive</strong></td><td>Copy the <code>migration-output</code> folder to a USB drive &rarr; plug into new laptop &rarr; copy to any folder (e.g. Desktop)</td></tr>')
-    [void]$sb.AppendLine("<tr><td><strong>&amp;#127760; Network Share</strong></td><td>On OLD laptop: right-click <code>migration-output</code> &rarr; Properties &rarr; Sharing &rarr; Share. On NEW laptop: open <code>\\$($ScanData.ComputerName)\migration-output</code> in Explorer. Both must be on the same Wi-Fi/network.</td></tr>")
-    [void]$sb.AppendLine('<tr><td><strong>&amp;#9729; Cloud Sync</strong></td><td>Copy <code>migration-output</code> into your OneDrive / Google Drive / Dropbox folder. Sign into the same account on the new laptop and download.</td></tr>')
+    [void]$sb.AppendLine('<tr><td><strong>&#128190; USB / External Drive</strong></td><td>Copy the <code>migration-output</code> folder to a USB drive &rarr; plug into new laptop &rarr; copy to any folder (e.g. Desktop)</td></tr>')
+    [void]$sb.AppendLine("<tr><td><strong>&#127760; Network Share</strong></td><td>On OLD laptop: right-click <code>migration-output</code> &rarr; Properties &rarr; Sharing &rarr; Share. On NEW laptop: open <code>\\$($ScanData.ComputerName)\migration-output</code> in Explorer. Both must be on the same Wi-Fi/network.</td></tr>")
+    [void]$sb.AppendLine('<tr><td><strong>&#9729; Cloud Sync</strong></td><td>Copy <code>migration-output</code> into your OneDrive / Google Drive / Dropbox folder. Sign into the same account on the new laptop and download.</td></tr>')
     [void]$sb.AppendLine('</tbody></table>')
-    [void]$sb.AppendLine('<p style="color:#58a6ff;margin-top:8px;font-size:12px">&amp;#128161; Follow the Restoration Guide section in this report to manually set up Git, env vars, and other settings.</p>')
+    [void]$sb.AppendLine('<p style="color:#58a6ff;margin-top:8px;font-size:12px">&#128161; Follow the Restoration Guide section in this report to manually set up Git, env vars, and other settings.</p>')
     [void]$sb.AppendLine('</div>')
     [void]$sb.AppendLine('<div class="section" style="margin-top:12px">')
-    [void]$sb.AppendLine('<h3 style="color:#f0f6fc;margin-bottom:8px;font-size:14px">&amp;#128161; Tips</h3>')
+    [void]$sb.AppendLine('<h3 style="color:#f0f6fc;margin-bottom:8px;font-size:14px">&#128161; Tips</h3>')
     $tips = @(
         'Review the scripts before running them &mdash; they are plain PowerShell and safe to inspect'
         'Use <code>migration-for-ai-review.md</code> with AI assistants to get help with any step'
@@ -2538,7 +2696,7 @@ function Write-HtmlReport {
         'Keep this report as a reference until you have confirmed everything is migrated'
     )
     foreach ($tip in $tips) {
-        [void]$sb.AppendLine("<div class=`"config-item`"><span class=`"config-icon`">&amp;bull;</span> $tip</div>")
+        [void]$sb.AppendLine("<div class=`"config-item`"><span class=`"config-icon`">&#8226;</span> $tip</div>")
     }
     [void]$sb.AppendLine('</div>')
     [void]$sb.AppendLine('</div>')
@@ -2621,8 +2779,7 @@ function Write-InstallScript {
     function Select-InstallableApps {
         param($Apps)
 
-        # Skip noisy sub-components and helper entries that should not be installed directly.
-        $skipNamePattern = '^(Python\s+.*\s+(Add to Path|Core Interpreter|Development Libraries|Documentation|Executables|pip Bootstrap|Standard Library|Tcl/Tk Support|Test Suite)(\s*\(.*\))?|Microsoft Teams Meeting Add-in.*|Microsoft Teams VDI.*|Microsoft Teams SlimCoreVdi.*|App Installer|Microsoft Store|Store Experience Host|Get Help|Feedback Hub|Mail and Calendar|Movies\s*&\s*TV|MSN Weather|News|Paint|Phone Link|Quick Assist|Snipping Tool|Windows\s+(Calculator|Camera|Clock|Media Player|Notepad|Security|Sound Recorder|Web Experience Pack|Advanced Settings)|Xbox\s+.*|Widgets Platform Runtime|Cross Device Experience Host|Start Experiences App|WebP Image Extension|Web Media Extensions|HEIF Image Extension|AV1 Video Extension|MPEG-2 Video Extension|VP9 Video Extensions|Raw Image Extension|Speech Pack\s+.*|Ink\.Handwriting.*|WindowsAppRuntime\..*|WinAppRuntime\..*|Microsoft\.UI\.Xaml\..*)$'
+        # Use the shared noise filter plus winget ID validation
         $seenIds = @{}
         $result = @()
 
@@ -2634,7 +2791,7 @@ function Write-InstallScript {
             # Ignore Store/MSIX identifiers and malformed IDs.
             if ($id -match '^MSIX\\') { continue }
             if ($id -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*\.[A-Za-z0-9][A-Za-z0-9._-]*$') { continue }
-            if ($name -match $skipNamePattern) { continue }
+            if ($name -match $script:SoftwareNoisePattern) { continue }
 
             $idKey = $id.ToLowerInvariant()
             if ($seenIds.ContainsKey($idKey)) { continue }
@@ -2667,9 +2824,9 @@ function Write-InstallScript {
     [void]$sb.AppendLine((Get-ProgressTrackerCode -ScriptName "install-software"))
 
     # Pre-compute software lists so counts are available for the header
-    $devSoftware = Select-InstallableApps -Apps @($ScanData.Software | Where-Object { $_.IsDev })
-    $genSoftware = Select-InstallableApps -Apps @($ScanData.Software | Where-Object { $_.IsGeneral })
-    $otherWithWinget = Select-InstallableApps -Apps @($ScanData.Software | Where-Object { -not $_.IsDev -and -not $_.IsGeneral })
+    $devSoftware = @(Select-InstallableApps -Apps @($ScanData.Software | Where-Object { $_.IsDev }))
+    $genSoftware = @(Select-InstallableApps -Apps @($ScanData.Software | Where-Object { $_.IsGeneral }))
+    $otherWithWinget = @(Select-InstallableApps -Apps @($ScanData.Software | Where-Object { -not $_.IsDev -and -not $_.IsGeneral }))
 
     # Generate array-based format (clean, one app per line, easy to comment out)
     [void]$sb.AppendLine('# ===============================================================')
@@ -4160,17 +4317,11 @@ $softwareResult = Get-InstalledSoftware
 $software     = @($softwareResult.Software)
 $portableApps = @($softwareResult.PortableApps)
 $configs      = Get-UserConfigs
+Write-Log "Configuration scan complete" -Level Success
 
 # Build scan data object
-$osVersion = ""
-try {
-    $osJob = Start-Job -ScriptBlock { (Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue).Caption }
-    $osResult = $osJob | Wait-Job -Timeout 10
-    if ($osResult) { $osVersion = ($osJob | Receive-Job) }
-    Stop-Job $osJob -ErrorAction SilentlyContinue
-    Remove-Job $osJob -Force -ErrorAction SilentlyContinue
-} catch { }
-if (-not $osVersion) { $osVersion = "$([Environment]::OSVersion.VersionString)" }
+Write-Log "Building scan data..." -Level Info
+$osVersion = [Environment]::OSVersion.VersionString
 
 $scanData = @{
     ScanDate      = $script:RunDate

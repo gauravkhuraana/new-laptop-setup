@@ -50,16 +50,33 @@ cd new-laptop-setup
 
 ### 2. Run on your OLD laptop
 
-```powershell
-# First time only: unblock the downloaded file
-Unblock-File .\Migrate-Laptop.ps1
+1. Open the folder where you saved `Migrate-Laptop.ps1`
+2. **Right-click** an empty area in the folder → **Open in Terminal** (Windows 11) or **Open PowerShell window here** (Windows 10)
+3. Run:
 
+```powershell
 .\Migrate-Laptop.ps1
 ```
 
-> **Getting a "not digitally signed" error?** See [Troubleshooting](#troubleshooting) below.
+> **Getting an error?** Run this first, then try again:
+> ```powershell
+> Unblock-File .\Migrate-Laptop.ps1
+> ```
+> See [Troubleshooting](#troubleshooting) for more options.
+>
+> **Works with both** Windows PowerShell 5.1 (built-in) and PowerShell 7. No need to install anything extra.
 
-A menu appears — pick **[3] Scan & Prepare**. It takes 1–2 minutes.
+A menu appears — **pick [3] to get started**. It takes 1–2 minutes.
+
+| Option | What it does |
+|--------|-------------|
+| **[1] What is this tool?** | Quick explainer — read this if it's your first time |
+| **[2] Manual guide** | Step-by-step checklist if you prefer doing it yourself, no automation |
+| **[3] Scan & Prepare** ⭐ | **Start here.** Scans your laptop and generates all reports + scripts |
+| [4] Scan Only | Generates reports only, no install/transfer scripts |
+| [5] Generate Scripts | Re-generate scripts from a previous scan (if you already scanned) |
+| [6] Post-Migration Checklist | Run on your NEW laptop after migration to verify everything |
+| [7] Clean Up Old Laptop | **Destructive** — deletes your data from the old laptop (last step, double-confirms) |
 
 ### 3. Copy `migration-output/` to your new laptop
 
