@@ -1763,6 +1763,10 @@ function Write-MarkdownReport {
 
     [void]$sb.AppendLine("# Laptop Migration Scan Report")
     [void]$sb.AppendLine("")
+    [void]$sb.AppendLine("> **Important:** In the HTML report, review each tab first, then open **Next Steps** and follow that checklist in order.")
+    [void]$sb.AppendLine("> **What to run next:** **NEW laptop** -- ``Install-Software.ps1``. **OLD laptop** -- ``Transfer-Data.ps1`` then ``Verify-Transfer.ps1``.")
+    [void]$sb.AppendLine("> **If scripts are missing:** Re-run ``Migrate-Laptop.ps1`` and choose **[3] Scan & Prepare** (first run) or **[5] Generate Scripts** (from previous scan).")
+    [void]$sb.AppendLine("")
     [void]$sb.AppendLine("| Field | Value |")
     [void]$sb.AppendLine("|-------|-------|")
     [void]$sb.AppendLine("| **Computer** | $($ScanData.ComputerName) |")
@@ -2379,7 +2383,13 @@ function Write-HtmlReport {
     [void]$sb.AppendLine('.tab-bar{display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid #30363d}')
     [void]$sb.AppendLine('.tab{padding:8px 20px;cursor:pointer;font-size:13px;color:#8b949e;border-bottom:2px solid transparent;margin-bottom:-2px}')
     [void]$sb.AppendLine('.tab:hover{color:#c9d1d9} .tab.active{color:#58a6ff;border-bottom-color:#58a6ff}')
+    [void]$sb.AppendLine('.tab.tab-next{color:#f2cc60;font-weight:600}')
+    [void]$sb.AppendLine('.tab.tab-next:hover{color:#ffd866}')
+    [void]$sb.AppendLine('.tab.tab-next.active{color:#ffd866;border-bottom-color:#ffd866;background:rgba(210,153,34,.12)}')
     [void]$sb.AppendLine('.tab-content{display:none} .tab-content.active{display:block}')
+    [void]$sb.AppendLine('.quick-note{background:#111d32;border:1px solid #58a6ff;border-left:4px solid #58a6ff;border-radius:8px;padding:12px 14px;margin:0 0 16px;font-size:13px;color:#c9d1d9}')
+    [void]$sb.AppendLine('.quick-note strong{color:#f0f6fc}')
+    [void]$sb.AppendLine('.next-steps-alert{border-color:#d29922;background:rgba(210,153,34,.12)}')
     [void]$sb.AppendLine('code{background:#30363d;padding:1px 5px;border-radius:3px;font-size:12px}')
     [void]$sb.AppendLine('</style></head><body><div class="container">')
 
@@ -2402,6 +2412,8 @@ function Write-HtmlReport {
     [void]$sb.AppendLine("  <div class=`"card purple`"><div class=`"num`">$otherCount</div><div class=`"label`">Other Software</div></div>")
     [void]$sb.AppendLine("  <div class=`"card blue`"><div class=`"num`">$configCount</div><div class=`"label`">Configs Found</div></div>")
     [void]$sb.AppendLine('</div>')
+    [void]$sb.AppendLine('<div class="quick-note"><strong>Start here:</strong> Review each tab first (Drives, Software, Configs, Data Folders, Manual Steps, Restoration Guide), then open <strong>Next Steps</strong> and complete that checklist in order.</div>')
+    [void]$sb.AppendLine('<div class="quick-note next-steps-alert"><strong>What to run next:</strong> On the <strong>NEW laptop</strong>, run <code>Install-Software.ps1</code>. On the <strong>OLD laptop</strong>, run <code>Transfer-Data.ps1</code> and then <code>Verify-Transfer.ps1</code>.<br><strong>If scripts are missing:</strong> run <code>Migrate-Laptop.ps1</code> and choose <strong>[3] Scan &amp; Prepare</strong> (first run) or <strong>[5] Generate Scripts</strong> (from previous scan).</div>')
 
     # Tabs
     [void]$sb.AppendLine('<div class="tab-bar">')
@@ -2411,7 +2423,7 @@ function Write-HtmlReport {
     [void]$sb.AppendLine('  <div class="tab" onclick="showTab(''folders'')">Data Folders</div>')
     [void]$sb.AppendLine('  <div class="tab" onclick="showTab(''checklist'')">Manual Steps</div>')
     [void]$sb.AppendLine('  <div class="tab" onclick="showTab(''restore'')">&#128295; Restoration Guide</div>')
-    [void]$sb.AppendLine('  <div class="tab" onclick="showTab(''nextsteps'')">&#127937; Next Steps</div>')
+    [void]$sb.AppendLine('  <div class="tab tab-next" onclick="showTab(''nextsteps'')">&#127937; Next Steps</div>')
     [void]$sb.AppendLine('</div>')
 
     # Tab: Drives
@@ -2717,6 +2729,9 @@ function Write-HtmlReport {
     # Tab: Next Steps
     [void]$sb.AppendLine('<div id="tab-nextsteps" class="tab-content">')
     [void]$sb.AppendLine('<h2>&#127937; Next Steps</h2>')
+    [void]$sb.AppendLine('<div class="section next-steps-alert">')
+    [void]$sb.AppendLine('<p style="margin:0"><strong>Recommended flow:</strong> First review all tabs in this report, then finish these Next Steps from top to bottom.</p>')
+    [void]$sb.AppendLine('</div>')
     [void]$sb.AppendLine('<div class="section">')
     [void]$sb.AppendLine('<p style="color:#8b949e;margin-bottom:16px">Follow these steps on your <strong>new laptop</strong> to complete the migration. The generated scripts handle most of the work for you.</p>')
     $nextSteps = @(
@@ -4476,17 +4491,15 @@ if ($scanData.Configs.Docker.Found) {
     Write-Host ""
 }
 
-# Offer to open the HTML report in browser
-$openReport = Read-Host "  Open the HTML report in your browser now? [Y/n]"
-if ($openReport -notmatch '^[nN]') {
-    Start-Process $htmlPath
-}
-Write-Host ""
-
 # -- Scan-only stops here --
 if ($script:ChosenMode -eq 'scan') {
     Write-Host "  Scan-only mode -- review the reports, then re-run to generate scripts." -ForegroundColor Yellow
     Write-Host "  Use: powershell -ExecutionPolicy Bypass -File .\Migrate-Laptop.ps1 -FromCache" -ForegroundColor Yellow
+    Write-Host ""
+    $openReport = Read-Host "  Open the HTML report in your browser now? [Y/n]"
+    if ($openReport -notmatch '^[nN]') {
+        Start-Process $htmlPath
+    }
     Write-Host ""
     Write-Log "Scan-only mode completed."
     exit 0
@@ -4589,6 +4602,12 @@ Write-Host "  Created by gauravkhurana.com for the community" -ForegroundColor D
 Write-Host "  Like this tool? Star the repo: github.com/gauravkhuraana/new-laptop-setup" -ForegroundColor DarkCyan
 Write-Host "  Connect: gauravkhurana.com/connect" -ForegroundColor DarkCyan
 Write-Host "  #SharingIsCaring" -ForegroundColor DarkCyan
+Write-Host ""
+
+$openReport = Read-Host "  Open the HTML report in your browser now? [Y/n]"
+if ($openReport -notmatch '^[nN]') {
+    Start-Process $htmlPath
+}
 Write-Host ""
 
 Write-Log "Full migration scan and script generation completed successfully."
