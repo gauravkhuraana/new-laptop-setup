@@ -2356,41 +2356,43 @@ function Write-HtmlReport {
     [void]$sb.AppendLine("<title>Migration Scan Report - $($ScanData.ScanDate)</title>")
     [void]$sb.AppendLine('<style>')
     [void]$sb.AppendLine('*{margin:0;padding:0;box-sizing:border-box}')
-    [void]$sb.AppendLine('body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#0d1117;color:#c9d1d9;line-height:1.6}')
+    [void]$sb.AppendLine('body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#0d1117;color:#c9d1d9;line-height:1.6;font-size:16px}')
     [void]$sb.AppendLine('.container{max-width:1200px;margin:0 auto;padding:24px}')
-    [void]$sb.AppendLine('h1{font-size:24px;font-weight:600;margin-bottom:4px;color:#f0f6fc}')
-    [void]$sb.AppendLine('h2{font-size:18px;font-weight:600;margin:32px 0 12px;color:#f0f6fc;border-bottom:1px solid #30363d;padding-bottom:8px}')
-    [void]$sb.AppendLine('.subtitle{color:#8b949e;margin-bottom:24px;font-size:14px}')
+    [void]$sb.AppendLine('h1{font-size:28px;font-weight:600;margin-bottom:4px;color:#f0f6fc}')
+    [void]$sb.AppendLine('h2{font-size:22px;font-weight:600;margin:32px 0 12px;color:#f0f6fc;border-bottom:1px solid #30363d;padding-bottom:8px}')
+    [void]$sb.AppendLine('.subtitle{color:#8b949e;margin-bottom:24px;font-size:16px}')
     [void]$sb.AppendLine('.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:28px}')
     [void]$sb.AppendLine('.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;text-align:center}')
-    [void]$sb.AppendLine('.card .num{font-size:28px;font-weight:700}')
-    [void]$sb.AppendLine('.card .label{font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px}')
+    [void]$sb.AppendLine('.card .num{font-size:32px;font-weight:700}')
+    [void]$sb.AppendLine('.card .label{font-size:12px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px}')
     [void]$sb.AppendLine('.card.blue .num{color:#58a6ff} .card.green .num{color:#3fb950} .card.yellow .num{color:#d29922} .card.purple .num{color:#bc8cff}')
     [void]$sb.AppendLine('table{width:100%;border-collapse:collapse;margin-bottom:24px}')
-    [void]$sb.AppendLine('th{background:#161b22;text-align:left;padding:8px 12px;font-size:12px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #30363d;cursor:pointer;user-select:none}')
+    [void]$sb.AppendLine('th{background:#161b22;text-align:left;padding:10px 12px;font-size:13px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #30363d;cursor:pointer;user-select:none}')
     [void]$sb.AppendLine('th:hover{color:#f0f6fc}')
-    [void]$sb.AppendLine('td{padding:8px 12px;border-bottom:1px solid #21262d;font-size:13px}')
+    [void]$sb.AppendLine('td{padding:10px 12px;border-bottom:1px solid #21262d;font-size:15px}')
     [void]$sb.AppendLine('tr:hover{background:#161b22}')
-    [void]$sb.AppendLine('.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:500}')
+    [void]$sb.AppendLine('.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:500}')
     [void]$sb.AppendLine('.badge-dev{background:#0c2d6b;color:#58a6ff} .badge-gen{background:#1b4332;color:#3fb950} .badge-other{background:#1c1c1c;color:#8b949e}')
-    [void]$sb.AppendLine('.config-item{padding:6px 0;display:flex;align-items:center;gap:8px}')
-    [void]$sb.AppendLine('.config-icon{font-size:16px}')
+    [void]$sb.AppendLine('.config-item{padding:6px 0;display:flex;align-items:center;gap:8px;font-size:15px}')
+    [void]$sb.AppendLine('.config-icon{font-size:18px}')
     [void]$sb.AppendLine('.section{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;margin-bottom:16px}')
     [void]$sb.AppendLine('.filter-bar{margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}')
-    [void]$sb.AppendLine('.filter-bar input{background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:6px 10px;font-size:13px;min-width:220px}')
-    [void]$sb.AppendLine('.filter-bar select{background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:6px 10px;font-size:13px}')
-    [void]$sb.AppendLine('.footer{text-align:center;color:#484f58;font-size:12px;margin-top:32px;padding-top:16px;border-top:1px solid #21262d}')
+    [void]$sb.AppendLine('.filter-bar input{background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:8px 10px;font-size:14px;min-width:220px}')
+    [void]$sb.AppendLine('.filter-bar select{background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:8px 10px;font-size:14px}')
+    [void]$sb.AppendLine('.footer{text-align:center;color:#484f58;font-size:13px;margin-top:32px;padding-top:16px;border-top:1px solid #21262d;line-height:1.6}')
+    [void]$sb.AppendLine('.footer-credit{display:inline-block;margin:8px auto 4px;padding:4px 12px;border-radius:999px;border:1px solid #58a6ff;background:rgba(88,166,255,.16);color:#cfe7ff;font-weight:700}')
+    [void]$sb.AppendLine('.footer-tag{color:#8b949e;font-size:12px}')
     [void]$sb.AppendLine('.tab-bar{display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid #30363d}')
-    [void]$sb.AppendLine('.tab{padding:8px 20px;cursor:pointer;font-size:13px;color:#8b949e;border-bottom:2px solid transparent;margin-bottom:-2px}')
+    [void]$sb.AppendLine('.tab{padding:10px 20px;cursor:pointer;font-size:15px;color:#8b949e;border-bottom:2px solid transparent;margin-bottom:-2px}')
     [void]$sb.AppendLine('.tab:hover{color:#c9d1d9} .tab.active{color:#58a6ff;border-bottom-color:#58a6ff}')
     [void]$sb.AppendLine('.tab.tab-next{color:#f2cc60;font-weight:600}')
     [void]$sb.AppendLine('.tab.tab-next:hover{color:#ffd866}')
     [void]$sb.AppendLine('.tab.tab-next.active{color:#ffd866;border-bottom-color:#ffd866;background:rgba(210,153,34,.12)}')
     [void]$sb.AppendLine('.tab-content{display:none} .tab-content.active{display:block}')
-    [void]$sb.AppendLine('.quick-note{background:#111d32;border:1px solid #58a6ff;border-left:4px solid #58a6ff;border-radius:8px;padding:12px 14px;margin:0 0 16px;font-size:13px;color:#c9d1d9}')
+    [void]$sb.AppendLine('.quick-note{background:#111d32;border:1px solid #58a6ff;border-left:4px solid #58a6ff;border-radius:8px;padding:14px 16px;margin:0 0 16px;font-size:15px;color:#c9d1d9}')
     [void]$sb.AppendLine('.quick-note strong{color:#f0f6fc}')
     [void]$sb.AppendLine('.next-steps-alert{border-color:#d29922;background:rgba(210,153,34,.12)}')
-    [void]$sb.AppendLine('code{background:#30363d;padding:1px 5px;border-radius:3px;font-size:12px}')
+    [void]$sb.AppendLine('code{background:#30363d;padding:1px 5px;border-radius:3px;font-size:13px}')
     [void]$sb.AppendLine('</style></head><body><div class="container">')
 
     # Header & summary cards
@@ -2624,16 +2626,16 @@ function Write-HtmlReport {
         [void]$sb.AppendLine('<h3 style="color:#f0f6fc;margin:16px 0 8px">Git Config</h3>')
         $gcName = if ($ScanData.Configs.GitConfig.PSObject.Properties['UserName'] -and $ScanData.Configs.GitConfig.UserName) { Get-HtmlEncoded $ScanData.Configs.GitConfig.UserName } else { "&lt;your-name&gt;" }
         $gcEmail = if ($ScanData.Configs.GitConfig.PSObject.Properties['UserEmail'] -and $ScanData.Configs.GitConfig.UserEmail) { Get-HtmlEncoded $ScanData.Configs.GitConfig.UserEmail } else { "&lt;your-email&gt;" }
-        [void]$sb.AppendLine("<pre style=`"background:#161b22;padding:12px;border-radius:6px;overflow-x:auto;font-size:13px`">git config --global user.name `"$gcName`"`ngit config --global user.email `"$gcEmail`"</pre>")
-        [void]$sb.AppendLine('<p style="color:#8b949e;font-size:12px;margin-top:4px">Your full .gitconfig is in the scan data. Copy manually if you have aliases, diff tools, etc.</p>')
+        [void]$sb.AppendLine("<pre style=`"background:#161b22;padding:12px;border-radius:6px;overflow-x:auto;font-size:14px`">git config --global user.name `"$gcName`"`ngit config --global user.email `"$gcEmail`"</pre>")
+        [void]$sb.AppendLine('<p style="color:#8b949e;font-size:13px;margin-top:4px">Your full .gitconfig is in the scan data. Copy manually if you have aliases, diff tools, etc.</p>')
     }
 
     # SSH keys
     if ($ScanData.Configs.SSHKeys.Found) {
         $sshFileList = ($ScanData.Configs.SSHKeys.Files | ForEach-Object { Get-HtmlEncoded $_ }) -join ", "
         [void]$sb.AppendLine('<h3 style="color:#f0f6fc;margin:16px 0 8px">SSH Keys</h3>')
-        [void]$sb.AppendLine("<p style=`"color:#8b949e;font-size:13px`">Files found: <code>$sshFileList</code></p>")
-        [void]$sb.AppendLine('<pre style="background:#161b22;padding:12px;border-radius:6px;overflow-x:auto;font-size:13px"># 1. Copy .ssh folder via USB drive (NEVER over network)')
+        [void]$sb.AppendLine("<p style=`"color:#8b949e;font-size:14px`">Files found: <code>$sshFileList</code></p>")
+        [void]$sb.AppendLine('<pre style="background:#161b22;padding:12px;border-radius:6px;overflow-x:auto;font-size:14px"># 1. Copy .ssh folder via USB drive (NEVER over network)')
         [void]$sb.AppendLine('# 2. Fix permissions on the new laptop:')
         [void]$sb.AppendLine('icacls "$env:USERPROFILE\.ssh\id_*" /inheritance:r /grant:r "$($env:USERNAME):(R)"')
         [void]$sb.AppendLine('# 3. Test: ssh -T git@github.com</pre>')
@@ -2642,9 +2644,9 @@ function Write-HtmlReport {
     # VS Code
     if ($ScanData.Configs.VSCode.Extensions.Count -gt 0) {
         [void]$sb.AppendLine("<h3 style=`"color:#f0f6fc;margin:16px 0 8px`">VS Code Extensions ($($ScanData.Configs.VSCode.Extensions.Count))</h3>")
-        [void]$sb.AppendLine('<p style="color:#3fb950;font-size:13px;margin-bottom:8px"><strong>Recommended:</strong> Use Settings Sync (Ctrl+Shift+P &rarr; Settings Sync: Turn On). This restores extensions + settings automatically.</p>')
-        [void]$sb.AppendLine('<details><summary style="cursor:pointer;color:#58a6ff;font-size:13px">Or install manually (click to expand)</summary>')
-        [void]$sb.AppendLine('<pre style="background:#161b22;padding:12px;border-radius:6px;overflow-x:auto;font-size:13px;margin-top:8px">')
+        [void]$sb.AppendLine('<p style="color:#3fb950;font-size:14px;margin-bottom:8px"><strong>Recommended:</strong> Use Settings Sync (Ctrl+Shift+P &rarr; Settings Sync: Turn On). This restores extensions + settings automatically.</p>')
+        [void]$sb.AppendLine('<details><summary style="cursor:pointer;color:#58a6ff;font-size:14px">Or install manually (click to expand)</summary>')
+        [void]$sb.AppendLine('<pre style="background:#161b22;padding:12px;border-radius:6px;overflow-x:auto;font-size:14px;margin-top:8px">')
         foreach ($ext in $ScanData.Configs.VSCode.Extensions) {
             [void]$sb.AppendLine("code --install-extension `"$(Get-HtmlEncoded $ext)`"")
         }
@@ -2654,21 +2656,21 @@ function Write-HtmlReport {
     # Environment variables
     if ($ScanData.Configs.EnvVars.Found) {
         [void]$sb.AppendLine("<h3 style=`"color:#f0f6fc;margin:16px 0 8px`">User Environment Variables ($($ScanData.Configs.EnvVars.Variables.Count))</h3>")
-        [void]$sb.AppendLine('<p style="color:#8b949e;font-size:13px">Set via: <strong>Settings &rarr; System &rarr; About &rarr; Advanced system settings &rarr; Environment Variables</strong></p>')
+        [void]$sb.AppendLine('<p style="color:#8b949e;font-size:14px">Set via: <strong>Settings &rarr; System &rarr; About &rarr; Advanced system settings &rarr; Environment Variables</strong></p>')
         [void]$sb.AppendLine('<table style="margin-top:8px"><thead><tr><th>Variable Name</th><th>Action</th></tr></thead><tbody>')
         foreach ($v in $ScanData.Configs.EnvVars.Variables) {
             $vName = Get-HtmlEncoded $v.Name
             [void]$sb.AppendLine("<tr><td><code>$vName</code></td><td>Set value from your password manager or secrets vault</td></tr>")
         }
         [void]$sb.AppendLine('</tbody></table>')
-        [void]$sb.AppendLine('<p style="color:#d29922;font-size:12px;margin-top:4px">&#9888; Variable values are NOT stored in this report for security.</p>')
+        [void]$sb.AppendLine('<p style="color:#d29922;font-size:13px;margin-top:4px">&#9888; Variable values are NOT stored in this report for security.</p>')
     }
 
     # PowerShell profile
     if ($ScanData.Configs.PSProfile.Found) {
         [void]$sb.AppendLine('<h3 style="color:#f0f6fc;margin:16px 0 8px">PowerShell Profile</h3>')
-        [void]$sb.AppendLine("<p style=`"color:#8b949e;font-size:13px`">Found at: <code>$(Get-HtmlEncoded $ScanData.Configs.PSProfile.Path)</code></p>")
-        [void]$sb.AppendLine('<pre style="background:#161b22;padding:12px;border-radius:6px;overflow-x:auto;font-size:13px"># Copy your old profile to the new laptop:')
+        [void]$sb.AppendLine("<p style=`"color:#8b949e;font-size:14px`">Found at: <code>$(Get-HtmlEncoded $ScanData.Configs.PSProfile.Path)</code></p>")
+        [void]$sb.AppendLine('<pre style="background:#161b22;padding:12px;border-radius:6px;overflow-x:auto;font-size:14px"># Copy your old profile to the new laptop:')
         [void]$sb.AppendLine('#   From: (old laptop) Documents\PowerShell\Microsoft.PowerShell_profile.ps1')
         [void]$sb.AppendLine('#   To:   $PROFILE (run $PROFILE in PowerShell to see the path)')
         [void]$sb.AppendLine('# Or create a new one: notepad $PROFILE</pre>')
@@ -2678,14 +2680,14 @@ function Write-HtmlReport {
     if ($ScanData.Configs.NpmGlobal.Found -and $ScanData.Configs.NpmGlobal.Packages.Count -gt 0) {
         $npmPkgs = ($ScanData.Configs.NpmGlobal.Packages | ForEach-Object { Get-HtmlEncoded $_.Name }) -join " "
         [void]$sb.AppendLine("<h3 style=`"color:#f0f6fc;margin:16px 0 8px`">npm Global Packages ($($ScanData.Configs.NpmGlobal.Packages.Count))</h3>")
-        [void]$sb.AppendLine("<pre style=`"background:#161b22;padding:12px;border-radius:6px;overflow-x:auto;font-size:13px`">npm install -g $npmPkgs</pre>")
+        [void]$sb.AppendLine("<pre style=`"background:#161b22;padding:12px;border-radius:6px;overflow-x:auto;font-size:14px`">npm install -g $npmPkgs</pre>")
     }
 
     # pip packages
     if ($ScanData.Configs.PipPackages.Found -and $ScanData.Configs.PipPackages.Packages.Count -gt 0) {
         $pipPkgs = ($ScanData.Configs.PipPackages.Packages | ForEach-Object { Get-HtmlEncoded $_.Name }) -join " "
         [void]$sb.AppendLine("<h3 style=`"color:#f0f6fc;margin:16px 0 8px`">pip User Packages ($($ScanData.Configs.PipPackages.Packages.Count))</h3>")
-        [void]$sb.AppendLine("<pre style=`"background:#161b22;padding:12px;border-radius:6px;overflow-x:auto;font-size:13px`">pip install --user $pipPkgs</pre>")
+        [void]$sb.AppendLine("<pre style=`"background:#161b22;padding:12px;border-radius:6px;overflow-x:auto;font-size:14px`">pip install --user $pipPkgs</pre>")
     }
 
     # File Explorer
@@ -2693,16 +2695,16 @@ function Write-HtmlReport {
         $feSettings = $ScanData.Configs.WindowsSettings.Settings.FileExplorer
         if ($feSettings -and $feSettings.Found) {
             [void]$sb.AppendLine('<h3 style="color:#f0f6fc;margin:16px 0 8px">File Explorer Preferences</h3>')
-            [void]$sb.AppendLine("<p style=`"color:#8b949e;font-size:13px`">Your settings: Show extensions=$($feSettings.ShowExtensions), Show hidden=$($feSettings.ShowHidden), Launch to=$($feSettings.LaunchTo)</p>")
-            [void]$sb.AppendLine('<p style="color:#8b949e;font-size:13px">Set via: <strong>File Explorer &rarr; View &rarr; Show &rarr; File name extensions / Hidden items</strong></p>')
+            [void]$sb.AppendLine("<p style=`"color:#8b949e;font-size:14px`">Your settings: Show extensions=$($feSettings.ShowExtensions), Show hidden=$($feSettings.ShowHidden), Launch to=$($feSettings.LaunchTo)</p>")
+            [void]$sb.AppendLine('<p style="color:#8b949e;font-size:14px">Set via: <strong>File Explorer &rarr; View &rarr; Show &rarr; File name extensions / Hidden items</strong></p>')
         }
     } catch { }
 
     # Hosts file
     if ($ScanData.Configs.HostsFile.Found) {
         [void]$sb.AppendLine('<h3 style="color:#f0f6fc;margin:16px 0 8px">Custom Hosts File Entries</h3>')
-        [void]$sb.AppendLine('<p style="color:#8b949e;font-size:13px">Run PowerShell <strong>as Admin</strong> and add these to <code>C:\Windows\System32\drivers\etc\hosts</code>:</p>')
-        [void]$sb.AppendLine('<pre style="background:#161b22;padding:12px;border-radius:6px;overflow-x:auto;font-size:13px">')
+        [void]$sb.AppendLine('<p style="color:#8b949e;font-size:14px">Run PowerShell <strong>as Admin</strong> and add these to <code>C:\Windows\System32\drivers\etc\hosts</code>:</p>')
+        [void]$sb.AppendLine('<pre style="background:#161b22;padding:12px;border-radius:6px;overflow-x:auto;font-size:14px">')
         foreach ($entry in $ScanData.Configs.HostsFile.CustomEntries) {
             [void]$sb.AppendLine("$(Get-HtmlEncoded $entry)")
         }
@@ -2712,8 +2714,8 @@ function Write-HtmlReport {
     # Docker
     if ($ScanData.Configs.Docker.Found) {
         [void]$sb.AppendLine('<h3 style="color:#f0f6fc;margin:16px 0 8px">Docker (Manual Migration Required)</h3>')
-        [void]$sb.AppendLine('<p style="color:#d29922;font-size:13px"><strong>&#9888; Docker is installed.</strong> Images and volumes are NOT scanned automatically. Review before wiping this laptop:</p>')
-        [void]$sb.AppendLine('<pre style="background:#161b22;padding:12px;border-radius:6px;overflow-x:auto;font-size:13px"># List your images (these can be re-pulled)')
+        [void]$sb.AppendLine('<p style="color:#d29922;font-size:14px"><strong>&#9888; Docker is installed.</strong> Images and volumes are NOT scanned automatically. Review before wiping this laptop:</p>')
+        [void]$sb.AppendLine('<pre style="background:#161b22;padding:12px;border-radius:6px;overflow-x:auto;font-size:14px"># List your images (these can be re-pulled)')
         [void]$sb.AppendLine('docker image ls')
         [void]$sb.AppendLine('')
         [void]$sb.AppendLine('# List volumes (may contain database or persistent data!)')
@@ -2721,7 +2723,7 @@ function Write-HtmlReport {
         [void]$sb.AppendLine('')
         [void]$sb.AppendLine('# Export a volume with important data')
         [void]$sb.AppendLine('docker run --rm -v myvolume:/data -v ${PWD}:/backup alpine tar czf /backup/myvolume.tar.gz -C /data .</pre>')
-        [void]$sb.AppendLine('<p style="color:#8b949e;font-size:12px;margin-top:4px">docker-compose.yml files in your project folders are transferred automatically via Transfer-Data.ps1.</p>')
+        [void]$sb.AppendLine('<p style="color:#8b949e;font-size:13px;margin-top:4px">docker-compose.yml files in your project folders are transferred automatically via Transfer-Data.ps1.</p>')
     }
 
     [void]$sb.AppendLine('</div></div>')
@@ -2748,17 +2750,17 @@ function Write-HtmlReport {
     }
     [void]$sb.AppendLine('</div>')
     [void]$sb.AppendLine('<div class="section" style="margin-top:12px">')
-    [void]$sb.AppendLine('<h3 style="color:#f0f6fc;margin-bottom:8px;font-size:14px">&#128640; How to Transfer migration-output to the New Laptop</h3>')
+    [void]$sb.AppendLine('<h3 style="color:#f0f6fc;margin-bottom:8px;font-size:16px">&#128640; How to Transfer migration-output to the New Laptop</h3>')
     [void]$sb.AppendLine('<p style="color:#8b949e;margin-bottom:12px">Pick whichever method is easiest for you. Both laptops need to see the same folder.</p>')
     [void]$sb.AppendLine('<table style="margin-bottom:0"><thead><tr><th>Method</th><th>How</th></tr></thead><tbody>')
     [void]$sb.AppendLine('<tr><td><strong>&#128190; USB / External Drive</strong></td><td>Copy the <code>migration-output</code> folder to a USB drive &rarr; plug into new laptop &rarr; copy to any folder (e.g. Desktop)</td></tr>')
     [void]$sb.AppendLine("<tr><td><strong>&#127760; Network Share</strong></td><td>On OLD laptop: right-click <code>migration-output</code> &rarr; Properties &rarr; Sharing &rarr; Share. On NEW laptop: open <code>\\$($ScanData.ComputerName)\migration-output</code> in Explorer. Both must be on the same Wi-Fi/network.</td></tr>")
     [void]$sb.AppendLine('<tr><td><strong>&#9729; Cloud Sync</strong></td><td>Copy <code>migration-output</code> into your OneDrive / Google Drive / Dropbox folder. Sign into the same account on the new laptop and download.</td></tr>')
     [void]$sb.AppendLine('</tbody></table>')
-    [void]$sb.AppendLine('<p style="color:#58a6ff;margin-top:8px;font-size:12px">&#128161; Follow the Restoration Guide section in this report to manually set up Git, env vars, and other settings.</p>')
+    [void]$sb.AppendLine('<p style="color:#58a6ff;margin-top:8px;font-size:13px">&#128161; Follow the Restoration Guide section in this report to manually set up Git, env vars, and other settings.</p>')
     [void]$sb.AppendLine('</div>')
     [void]$sb.AppendLine('<div class="section" style="margin-top:12px">')
-    [void]$sb.AppendLine('<h3 style="color:#f0f6fc;margin-bottom:8px;font-size:14px">&#128161; Tips</h3>')
+    [void]$sb.AppendLine('<h3 style="color:#f0f6fc;margin-bottom:8px;font-size:16px">&#128161; Tips</h3>')
     $tips = @(
         'Review the scripts before running them &mdash; they are plain PowerShell and safe to inspect'
         'Use <code>migration-for-ai-review.md</code> with AI assistants to get help with any step'
@@ -2772,7 +2774,7 @@ function Write-HtmlReport {
     [void]$sb.AppendLine('</div>')
 
     # Footer + JS
-    [void]$sb.AppendLine("<div class=`"footer`">Generated by <strong>Migrate-Laptop</strong> on $($ScanData.ScanDate) &middot; Created by gauravkhurana.com &middot; #SharingIsCaring</div>")
+    [void]$sb.AppendLine("<div class=`"footer`"><div>Generated by <strong>Migrate-Laptop</strong> on $($ScanData.ScanDate)</div><div class=`"footer-credit`">Created by gauravkhurana.com for the community</div><div class=`"footer-tag`">#SharingIsCaring</div></div>")
     [void]$sb.AppendLine('</div>')
     [void]$sb.AppendLine('<script>')
     [void]$sb.AppendLine('function showTab(id){')

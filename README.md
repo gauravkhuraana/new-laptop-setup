@@ -4,6 +4,9 @@
 
 Run it on your old laptop → it scans everything → generates ready-to-run scripts → you run them on the old/new laptop as guided. Done.
 
+> **Fast transfer by default:** For repos and projects, the transfer script skips heavy re-creatable folders (like `node_modules`, `.git`, and build caches) so copy is much faster.
+> **You control installs:** Your detected software is listed in `Install-Software.ps1`, and you can choose exactly what to install by keeping or commenting lines.
+
 ---
 
 ## What It Does
