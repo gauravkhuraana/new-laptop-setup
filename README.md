@@ -397,6 +397,12 @@ Attach the generated file to your issue.
 
 ---
 
+## Acknowledgements
+
+Special thanks to **Monica Jain**, **Faiz Modi**, **Avishek Behera**, and **Amit Singh** for helping test this tool.
+
+---
+
 ## Disclaimer
 
 > **Use at your own risk.** While every precaution has been taken to make this tool safe and reliable, I am not responsible for any data loss, corruption, or unintended consequences. Always **back up your data independently** before running any migration. Verify everything works before wiping your old laptop.
