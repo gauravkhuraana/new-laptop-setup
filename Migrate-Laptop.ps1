@@ -1656,9 +1656,47 @@ function Get-UserConfigs {
 
 function Save-ScanCache {
     param([string]$CachePath, $ScanData)
-    Write-Log "Saving scan cache (serializing JSON)..." -Level Info
-    $ScanData | ConvertTo-Json -Depth 10 | Set-Content -Path $CachePath -Encoding UTF8
-    Write-Log "Scan cache saved: $CachePath" -Level Success
+    Write-Log "Saving scan cache (serializing JSON)... this can take up to 2 minutes on large profiles" -Level Info
+
+    $tmpPath = "$CachePath.tmp"
+    $timeoutSeconds = 120
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+
+    $job = Start-Job -ScriptBlock {
+        param($Data, $Path)
+        try {
+            $json = $Data | ConvertTo-Json -Depth 6 -WarningAction SilentlyContinue
+            Set-Content -Path $Path -Value $json -Encoding UTF8
+            "OK"
+        } catch {
+            "ERR: $($_.Exception.Message)"
+        }
+    } -ArgumentList $ScanData, $tmpPath
+
+    $finished = $job | Wait-Job -Timeout $timeoutSeconds
+    if ($null -eq $finished) {
+        $job | Stop-Job -PassThru | Remove-Job -Force | Out-Null
+        if (Test-Path $tmpPath) { Remove-Item -Path $tmpPath -Force -ErrorAction SilentlyContinue }
+        Write-Log "Scan cache save timed out after ${timeoutSeconds}s. Continuing with in-memory data (reports/scripts still generated)." -Level Warn
+        return $false
+    }
+
+    $result = $job | Receive-Job -ErrorAction SilentlyContinue
+    $job | Remove-Job -Force | Out-Null
+    if ($result -is [Array]) { $result = [string]$result[-1] }
+
+    if ($result -ne 'OK') {
+        if (Test-Path $tmpPath) { Remove-Item -Path $tmpPath -Force -ErrorAction SilentlyContinue }
+        $errText = if ($result) { $result } else { 'unknown serialization error' }
+        Write-Log "Scan cache save failed: $errText. Continuing with in-memory data." -Level Warn
+        return $false
+    }
+
+    Move-Item -Path $tmpPath -Destination $CachePath -Force
+    $sw.Stop()
+    $elapsedSeconds = [math]::Round($sw.Elapsed.TotalSeconds, 1)
+    Write-Log "Scan cache saved: $CachePath (${elapsedSeconds}s)" -Level Success
+    return $true
 }
 
 function Load-ScanCache {
@@ -4358,8 +4396,17 @@ $scanData = @{
 
 # Save cache and reload to normalize hashtables -> PSCustomObject for report functions
 $cachePath = Join-Path $OutputDir "scan-$($script:RunDate).json"
-Save-ScanCache -CachePath $cachePath -ScanData $scanData
-$scanData = Load-ScanCache -CachePath $cachePath
+$cacheSaved = Save-ScanCache -CachePath $cachePath -ScanData $scanData
+if ($cacheSaved) {
+    $loadedScanData = Load-ScanCache -CachePath $cachePath
+    if ($loadedScanData) {
+        $scanData = $loadedScanData
+    } else {
+        Write-Log "Could not reload cache. Continuing with in-memory scan data." -Level Warn
+    }
+} else {
+    Write-Log "Cache file was not saved. Continuing with in-memory scan data." -Level Warn
+}
 
 # Generate reports
 Write-Step "Generating Reports"
