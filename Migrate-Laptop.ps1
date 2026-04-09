@@ -213,15 +213,26 @@ function Write-Step {
 function Get-HtmlEncoded {
     param([string]$Text)
     if (-not $Text) { return '' }
-    # PS 7+ doesn't have System.Web -- use System.Net.WebUtility (available everywhere)
-    # System.Security.SecurityElement.Escape also works but doesn't handle all chars
-    if ([type]::GetType('System.Net.WebUtility')) {
-        return [System.Net.WebUtility]::HtmlEncode($Text)
+
+    # Prefer WebUtility (works on Windows PowerShell 5.1 and PowerShell 7+)
+    $webUtilityType = 'System.Net.WebUtility' -as [type]
+    if ($webUtilityType) {
+        return $webUtilityType::HtmlEncode($Text)
     }
-    if ([type]::GetType('System.Web.HttpUtility')) {
-        return [System.Web.HttpUtility]::HtmlEncode($Text)
+
+    # Fallback for older/full-framework environments
+    $httpUtilityType = 'System.Web.HttpUtility' -as [type]
+    if (-not $httpUtilityType) {
+        try {
+            Add-Type -AssemblyName System.Web -ErrorAction SilentlyContinue
+            $httpUtilityType = 'System.Web.HttpUtility' -as [type]
+        } catch { }
     }
-    # Fallback: manual escape
+    if ($httpUtilityType) {
+        return $httpUtilityType::HtmlEncode($Text)
+    }
+
+    # Final fallback: manual escape
     return $Text.Replace('&','&amp;').Replace('<','&lt;').Replace('>','&gt;').Replace('"','&quot;')
 }
 
@@ -265,76 +276,57 @@ function Invoke-WithTimeout {
 # Noise filter -- Windows sub-components, runtimes, codecs, and helper entries
 # that clutter reports and should never be explicitly installed by users.
 # Applied during scan so all reports, summaries, and scripts are clean.
-$script:SoftwareNoisePattern = @'
-^(
-  # Python installer sub-components (the main "Python 3.x" entry is kept)
-  Python\s+\d+\.\d+\.\d+\s+(Add to Path|Core Interpreter|Development Libraries|Documentation|Executables|pip Bootstrap|Standard Library|Tcl/Tk Support|Test Suite)(\s*\(.*\))?
-
-  # Teams VDI / Citrix sub-components
-  |Microsoft Teams Meeting Add-in.*
-  |Microsoft Teams VDI.*
-  |Microsoft Teams SlimCoreVdi.*
-  |Citrix\s+(Desktop Lock|Workspace\(.*?\)|Inside|Authentication Manager|Secure Access.*|Browser Content.*|Web Helper)
-  |AppProtection(\s*\(Citrix\))?
-  |MTOP Client(\s*\(Citrix\))?
-  |Online Plug-in(\s*\(Citrix\))?
-  |Self-service Plug-in(\s*\(Citrix\))?
-  |deviceTRUST\s+ICA\s+Client.*
-
-  # Built-in Windows Store apps / inbox apps
-  |App Installer|Microsoft Store|Store Experience Host
-  |Get Help|Feedback Hub|Mail and Calendar
-  |Movies\s*&\s*TV|MSN Weather|News|Phone Link
-  |Quick Assist|Snipping Tool|Solitaire\s*&\s*Casual Games
-  |Windows\s+(Calculator|Camera|Clock|Media Player|Notepad|Security|Sound Recorder|Web Experience Pack|Advanced Settings|Alarms.*)
-  |Xbox\s*.*|Game Speech Window.*
-  |Widgets Platform Runtime|Cross Device Experience Host|Start Experiences App
-  |Microsoft\s+(Bing|Engagement Framework|Sticky Notes|Clipchamp)
-  |Microsoft\s+365\s+(companion apps|Copilot.*)
-  |Company Portal|WritingAssistant
-
-  # Media codecs / image extensions
-  |WebP Image Extension|Web Media Extensions
-  |HEIF Image Extension|AV1 Video Extension|MPEG-2 Video Extension
-  |VP9 Video Extensions|Raw Image Extension|AVC Encoder Video Extension
-
-  # Runtimes, redistributables, and frameworks (not user-installable)
-  |Microsoft Visual C\+\+\s+\d{4}.*Redistributable.*
-  |Microsoft Visual C\+\+\s+\d{4}.*Runtime.*
-  |Microsoft\s+\.NET\s+(Runtime|Host|Host FX Resolver)\s+-\s+\d+\.\d+.*
-  |Microsoft\s+Windows\s+Desktop\s+Runtime\s+-\s+\d+\.\d+.*
-  |Microsoft Edge WebView2 Runtime
-  |WindowsAppRuntime\..*|WinAppRuntime\..*
-  |Microsoft\.UI\.Xaml\..*
-
-  # Windows platform internals and agents
-  |Microsoft\s+(Update Health Tools|Device Inventory Agent|Intune Management Extension|EPM Agent)
-  |Configuration Manager Client
-  |Ink\.Handwriting\..*
-  |Speech Pack\s+.*
-  |OfficePushNotificationsUtility|Microsoft\.Office\.ActionsServer
-  |Local AI Manager for Microsoft 365
-  |UUP\s*\(.*\)|WinMLShared|PSTokenizer(Shared)?|OnnxRuntime|PSOnnxRuntime
-  |SessionManager|WindowsWorkload\..*|EpmShellExtension
-  |OneNote Virtual Printer
-
-  # OEM bloatware and hardware drivers (reinstall via Windows Update / OEM on new hardware)
-  |HP\s+(System Information|Insights.*|One Agent|Accessory WMI.*)
-  |AMD\s+(Chipset|GPIO|I2C|Interface|Wireless Button|PSP|SFH|PMF|PPM|MicroPEP|Install Manager|Settings)\s*(Driver|Drivers)?.*
-  |AMD_Chipset_Drivers
-  |Logi\s+RightSight.*
-
-  # Shell extensions and context menu handlers (not standalone apps)
-  |.*ContextMenu$|.*ShellExtension$|.*Shell\s+Extension$
-
-  # Corporate security agents (auto-deployed by IT, never user-installed)
-  |Illumio\s+VEN.*
-
-  # Background updater/service components (not user apps)
-  |Adobe\s+Refresh\s+Manager
-  |Poly\s+Lens\s+Control\s+Service
-)$
-'@ -replace '\s*#[^\n]*' -replace '\r?\n\s*', ''
+$script:SoftwareNoisePattern = (
+    '^(' +
+    'Python\s+\d+\.\d+\.\d+\s+(Add to Path|Core Interpreter|Development Libraries|Documentation|Executables|pip Bootstrap|Standard Library|Tcl/Tk Support|Test Suite)(\s*\(.*\))?' +
+    '|Microsoft Teams Meeting Add-in.*' +
+    '|Microsoft Teams VDI.*' +
+    '|Microsoft Teams SlimCoreVdi.*' +
+    '|Citrix\s+(Desktop Lock|Workspace\(.*?\)|Inside|Authentication Manager|Secure Access.*|Browser Content.*|Web Helper)' +
+    '|AppProtection(\s*\(Citrix\))?' +
+    '|MTOP Client(\s*\(Citrix\))?' +
+    '|Online Plug-in(\s*\(Citrix\))?' +
+    '|Self-service Plug-in(\s*\(Citrix\))?' +
+    '|deviceTRUST\s+ICA\s+Client.*' +
+    '|App Installer|Microsoft Store|Store Experience Host' +
+    '|Get Help|Feedback Hub|Mail and Calendar' +
+    '|Movies\s*&\s*TV|MSN Weather|News|Phone Link' +
+    '|Quick Assist|Snipping Tool|Solitaire\s*&\s*Casual Games' +
+    '|Windows\s+(Calculator|Camera|Clock|Media Player|Notepad|Security|Sound Recorder|Web Experience Pack|Advanced Settings|Alarms.*)' +
+    '|Xbox\s*.*|Game Speech Window.*' +
+    '|Widgets Platform Runtime|Cross Device Experience Host|Start Experiences App' +
+    '|Microsoft\s+(Bing|Engagement Framework|Sticky Notes|Clipchamp)' +
+    '|Microsoft\s+365\s+(companion apps|Copilot.*)' +
+    '|Company Portal|WritingAssistant' +
+    '|WebP Image Extension|Web Media Extensions' +
+    '|HEIF Image Extension|AV1 Video Extension|MPEG-2 Video Extension' +
+    '|VP9 Video Extensions|Raw Image Extension|AVC Encoder Video Extension' +
+    '|Microsoft Visual C\+\+\s+\d{4}.*Redistributable.*' +
+    '|Microsoft Visual C\+\+\s+\d{4}.*Runtime.*' +
+    '|Microsoft\s+\.NET\s+(Runtime|Host|Host FX Resolver)\s+-\s+\d+\.\d+.*' +
+    '|Microsoft\s+Windows\s+Desktop\s+Runtime\s+-\s+\d+\.\d+.*' +
+    '|Microsoft Edge WebView2 Runtime' +
+    '|WindowsAppRuntime\..*|WinAppRuntime\..*' +
+    '|Microsoft\.UI\.Xaml\..*' +
+    '|Microsoft\s+(Update Health Tools|Device Inventory Agent|Intune Management Extension|EPM Agent)' +
+    '|Configuration Manager Client' +
+    '|Ink\.Handwriting\..*' +
+    '|Speech Pack\s+.*' +
+    '|OfficePushNotificationsUtility|Microsoft\.Office\.ActionsServer' +
+    '|Local AI Manager for Microsoft 365' +
+    '|UUP\s*\(.*\)|WinMLShared|PSTokenizer(Shared)?|OnnxRuntime|PSOnnxRuntime' +
+    '|SessionManager|WindowsWorkload\..*|EpmShellExtension' +
+    '|OneNote Virtual Printer' +
+    '|HP\s+(System Information|Insights.*|One Agent|Accessory WMI.*)' +
+    '|AMD\s+(Chipset|GPIO|I2C|Interface|Wireless Button|PSP|SFH|PMF|PPM|MicroPEP|Install Manager|Settings)\s*(Driver|Drivers)?.*' +
+    '|AMD_Chipset_Drivers' +
+    '|Logi\s+RightSight.*' +
+    '|.*ContextMenu$|.*ShellExtension$|.*Shell\s+Extension$' +
+    '|Illumio\s+VEN.*' +
+    '|Adobe\s+Refresh\s+Manager' +
+    '|Poly\s+Lens\s+Control\s+Service' +
+    ')$'
+)
 
 # Developer essentials -- name patterns (regex) mapped to winget IDs
 $script:DevEssentials = @(

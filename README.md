@@ -55,16 +55,12 @@ cd new-laptop-setup
 3. Run:
 
 ```powershell
-.\Migrate-Laptop.ps1
+powershell -ExecutionPolicy Bypass -File .\Migrate-Laptop.ps1
 ```
 
-> **Getting an error?** Run this first, then try again:
-> ```powershell
-> Unblock-File .\Migrate-Laptop.ps1
-> ```
-> See [Troubleshooting](#troubleshooting) for more options.
+> **Why `powershell -ExecutionPolicy Bypass`?** Windows blocks downloaded scripts on some systems by default. This allows the script to run for this one session only — it does not change any system settings. See [Troubleshooting](#troubleshooting) for alternatives.
 >
-> **Works with both** Windows PowerShell 5.1 (built-in) and PowerShell 7. No need to install anything extra.
+> **Works with both** Windows PowerShell 5.1 (built-in) and PowerShell 7. If you prefer PowerShell 7, you can also run: `pwsh -ExecutionPolicy Bypass -File .\Migrate-Laptop.ps1`.
 
 A menu appears — **pick [3] to get started**. It takes 1–2 minutes.
 
@@ -82,17 +78,23 @@ A menu appears — **pick [3] to get started**. It takes 1–2 minutes.
 
 Use USB drive, network share, or cloud sync.
 
-### 4. Run the scripts on your NEW laptop
+### 4. Run the scripts
+
+**On your OLD laptop** — transfer your data to the new laptop:
 
 ```powershell
-# Install your apps (via winget)
-.\Install-Software.ps1
-
-# Transfer your data (Documents, Projects, etc.)
+# Copies your data folders (Documents, Projects, etc.) to the destination
 .\Transfer-Data.ps1
 
 # Verify nothing was missed
 .\Verify-Transfer.ps1
+```
+
+**On your NEW laptop** — install your apps:
+
+```powershell
+# Install your apps (via winget)
+.\Install-Software.ps1
 ```
 
 ### 5. Follow the Restoration Guide
@@ -188,10 +190,10 @@ After transferring projects, rebuild dependencies fresh: `npm install`, `pip ins
 ## Command Line Options
 
 ```powershell
-.\Migrate-Laptop.ps1                    # Interactive wizard (recommended)
-.\Migrate-Laptop.ps1 -ScanOnly          # Reports only, no scripts
-.\Migrate-Laptop.ps1 -FromCache         # Generate scripts from previous scan
-.\Migrate-Laptop.ps1 -OutputDir "D:\out" # Custom output folder
+powershell -ExecutionPolicy Bypass -File .\Migrate-Laptop.ps1                     # Interactive wizard (recommended)
+powershell -ExecutionPolicy Bypass -File .\Migrate-Laptop.ps1 -ScanOnly           # Reports only, no scripts
+powershell -ExecutionPolicy Bypass -File .\Migrate-Laptop.ps1 -FromCache          # Generate scripts from previous scan
+powershell -ExecutionPolicy Bypass -File .\Migrate-Laptop.ps1 -OutputDir "D:\out"  # Custom output folder
 ```
 
 ---
@@ -209,27 +211,27 @@ After transferring projects, rebuild dependencies fresh: `npm install`, `pip ins
 
 <details><summary><strong>"File is not digitally signed" / UnauthorizedAccess error</strong></summary>
 
-Windows blocks scripts downloaded from the internet. Fix it with **any one** of these:
+Windows blocks scripts downloaded from the internet on some machines. Fix it with **any one** of these:
 
-**Option A: Unblock the file (recommended)**
-```powershell
-Unblock-File .\Migrate-Laptop.ps1
-.\Migrate-Laptop.ps1
-```
-
-**Option B: Bypass execution policy for this session only**
+**Option A: Bypass execution policy for this run only (recommended)**
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\Migrate-Laptop.ps1
 ```
 
-**Option C: Allow local scripts permanently (current user)**
+**Option B: Unblock the file, then run it**
+```powershell
+Unblock-File .\Migrate-Laptop.ps1
+powershell -ExecutionPolicy Bypass -File .\Migrate-Laptop.ps1
+```
+
+**Option C: Allow local scripts for your account (permanent)**
 ```powershell
 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 Unblock-File .\Migrate-Laptop.ps1
 .\Migrate-Laptop.ps1
 ```
 
-**Why does this happen?** Windows marks files downloaded from the internet with a security flag (Zone Identifier). The default execution policy (`Restricted` or `AllSigned`) blocks these scripts. `Unblock-File` removes the flag; `-ExecutionPolicy Bypass` skips the check entirely for that session.
+**Why does this happen?** Windows marks downloaded files with a security flag (Zone Identifier). `Unblock-File` removes that flag, but if your execution policy is still `Restricted`, the script can still be blocked. `-ExecutionPolicy Bypass` works for that one run only.
 </details>
 
 ---
