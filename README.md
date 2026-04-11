@@ -17,42 +17,7 @@ Run it on your old laptop → it scans everything → generates ready-to-run scr
 
 Nothing is deleted or modified on your old laptop. Every script asks before doing anything.
 
----
-
-## Before You Start (on OLD laptop)
-
-Do these **before** running the migration tool. Takes 10–15 minutes and saves hours later.
-
-### Ensure sync is current
-
-- [ ] **OneDrive** — check the icon in system tray shows ✅ (fully synced). If files are still uploading, wait for sync to finish
-- [ ] **Browser sign-in** — verify you're signed into Chrome / Edge / Firefox (bookmarks, passwords, extensions will sync to new laptop)
-- [ ] **VS Code Settings Sync** — if not already on: `Ctrl+Shift+P` → "Settings Sync: Turn On" → sign in. Let it finish uploading
-- [ ] **iCloud / Google Drive / Dropbox** — if you use any, make sure everything is synced (no pending uploads)
-
-### Back up what doesn't sync
-
-- [ ] **SSH keys** — copy `%USERPROFILE%\.ssh\` folder to a USB drive (never email or cloud-share private keys)
-- [ ] **License keys** — note down software license keys (check email for purchase receipts, or use tools like ProduKey)
-- [ ] **2FA / Authenticator** — ensure your authenticator app (Microsoft Authenticator, Google Authenticator, Authy) is backed up or supports multi-device. **If you wipe the old phone/laptop without doing this, you get locked out**
-- [ ] **Outlook rules** — export: File → Manage Rules & Alerts → Options → Export Rules (`.rwz` file)
-- [ ] **VPN configs** — screenshot or export your VPN connection settings
-- [ ] **KeePass database** — if using KeePass, copy your `.kdbx` file to USB
-
-### Note down things you'll forget
-
-- [ ] **Printer names & IPs** — Settings → Bluetooth & Devices → Printers (note network printer IPs)
-- [ ] **Mapped network drives** — open File Explorer, note any `Z:\`, `X:\` etc. mapped drives and their paths
-- [ ] **Custom hosts file entries** — check `C:\Windows\System32\drivers\etc\hosts` for any custom entries
-- [ ] **Startup apps** — Task Manager → Startup tab — note which apps you want starting at login
-
-### Optional but helpful
-
-- [ ] **Docker volumes** — if you use Docker with persistent data: `docker volume ls` → export important volumes
-- [ ] **WSL distros** — if you use WSL: `wsl --export Ubuntu ubuntu-backup.tar` (save to USB)
-- [ ] **Database backups** — if running local databases: `pg_dump`, `mysqldump`, copy `.sqlite` files
-
-> **TL;DR** — Make sure cloud sync is finished, copy SSH keys to USB, note license keys, back up 2FA. Then run the tool.
+> **First time?** Check the [Pre-Migration Checklist](#before-you-start-on-old-laptop) before running — make sure cloud sync is finished, SSH keys are backed up, and 2FA is set up.
 
 ---
 
@@ -464,6 +429,47 @@ Option [7] in the main menu. It deletes personal data (Desktop, Documents, brows
 
 Yes. It's a single local PowerShell script with zero dependencies — no internet access, no telemetry, no external services. IT teams can review the source code (single file, ~4300 lines). See [SECURITY.md](SECURITY.md) for the security policy.
 </details>
+
+---
+
+## Before You Start (on OLD laptop)
+
+Do these **before** running the migration tool. Takes 10 minutes and saves hours later.
+
+<details><summary><strong>Ensure sync is current</strong></summary>
+
+- [ ] **OneDrive** — check system tray icon shows ✅ (fully synced, no pending uploads)
+- [ ] **Browser sign-in** — verify you're signed into Chrome / Edge / Firefox
+- [ ] **VS Code Settings Sync** — `Ctrl+Shift+P` → "Settings Sync: Turn On" → sign in
+- [ ] **iCloud / Google Drive / Dropbox** — make sure everything is synced
+</details>
+
+<details><summary><strong>Back up what doesn't sync</strong></summary>
+
+- [ ] **SSH keys** — copy `%USERPROFILE%\.ssh\` to USB drive (never email private keys)
+- [ ] **License keys** — note from email receipts or use ProduKey
+- [ ] **2FA / Authenticator** — ensure backup is on (Microsoft Authenticator, Authy). **You get locked out if you wipe without this**
+- [ ] **Outlook rules** — File → Manage Rules → Options → Export Rules (`.rwz`)
+- [ ] **VPN configs** — screenshot or export connection settings
+- [ ] **KeePass database** — copy `.kdbx` file to USB
+</details>
+
+<details><summary><strong>Note down things you'll forget</strong></summary>
+
+- [ ] **Printer names & IPs** — Settings → Printers (note network printer IPs)
+- [ ] **Mapped network drives** — note `Z:\`, `X:\` paths from File Explorer
+- [ ] **Custom hosts file entries** — check `C:\Windows\System32\drivers\etc\hosts`
+- [ ] **Startup apps** — Task Manager → Startup tab
+</details>
+
+<details><summary><strong>Optional but helpful</strong></summary>
+
+- [ ] **Docker volumes** — `docker volume ls` → export important ones
+- [ ] **WSL distros** — `wsl --export Ubuntu ubuntu-backup.tar`
+- [ ] **Local databases** — `pg_dump`, `mysqldump`, copy `.sqlite` files
+</details>
+
+> **TL;DR** — Make sure cloud sync is finished, copy SSH keys to USB, note license keys, back up 2FA. Then run the tool.
 
 ---
 
