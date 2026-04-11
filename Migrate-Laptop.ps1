@@ -3821,26 +3821,54 @@ function Start-OldLaptopCleanup {
         $root = $drive.Root
         # Skip temp drives
         if ($drive.Name -ieq 'Temp') { continue }
-        $topFolders = Get-ChildItem -Path $root -Directory -Force -ErrorAction SilentlyContinue |
-            Where-Object { -not $_.Name.StartsWith('$') -and $_.Name -ne 'System Volume Information' -and $_.Name -ne '$RECYCLE.BIN' }
+        $topFolders = @(Get-ChildItem -Path $root -Directory -Force -ErrorAction SilentlyContinue |
+            Where-Object { -not $_.Name.StartsWith('$') -and $_.Name -ne 'System Volume Information' -and $_.Name -ne '$RECYCLE.BIN' })
         if ($topFolders.Count -gt 0) {
+            Write-Host ""
             Write-Host "  Drive $($drive.Name): has $($topFolders.Count) folders" -ForegroundColor Yellow
-            $confirmDrive = Read-Host "  Delete ALL personal data folders on $($drive.Name):? [y/N]"
-            if ($confirmDrive -match '^[yY]') {
-                foreach ($folder in $topFolders) {
-                    if (Test-IsScriptFolder $folder.FullName) {
-                        Write-Log "Skipped: $($folder.FullName) (contains this script -- delete manually after cleanup)" -Level Warn
-                        continue
-                    }
-                    try {
-                        Remove-Item -Path $folder.FullName -Recurse -Force -ErrorAction SilentlyContinue
-                        Write-Log "Deleted: $($folder.FullName)" -Level Success
-                    } catch {
-                        Write-Log "Error deleting $($folder.FullName) -- $($_.Exception.Message)" -Level Warn
+            Write-Host ""
+            Write-Host "  TIP: The fastest way to wipe this drive is to format it:" -ForegroundColor Cyan
+            Write-Host "    1. Open File Explorer" -ForegroundColor White
+            Write-Host "    2. Right-click drive $($drive.Name): -> Format..." -ForegroundColor White
+            Write-Host "    3. Check 'Quick Format' and click Start" -ForegroundColor White
+            Write-Host ""
+            Write-Host "  Options:" -ForegroundColor Yellow
+            Write-Host "    [F] I'll format it myself in File Explorer (skip this drive)" -ForegroundColor White
+            Write-Host "    [D] Delete folder by folder (I'll choose which to keep)" -ForegroundColor White
+            Write-Host "    [S] Skip this drive entirely" -ForegroundColor White
+            Write-Host ""
+            $driveChoice = Read-Host "  Choice [F/D/S]"
+            switch -Regex ($driveChoice) {
+                '^[fF]' {
+                    Write-Log "Drive $($drive.Name): -- user will format manually via File Explorer" -Level Info
+                    Write-Host "  -> Remember to format $($drive.Name): in File Explorer before handing over the laptop." -ForegroundColor DarkGray
+                }
+                '^[dD]' {
+                    foreach ($folder in $topFolders) {
+                        if (Test-IsScriptFolder $folder.FullName) {
+                            Write-Log "Skipped: $($folder.FullName) (contains this script -- delete manually after cleanup)" -Level Warn
+                            continue
+                        }
+                        $folderConfirm = Read-Host "  Delete $($folder.FullName)? [y/N/skip rest]"
+                        if ($folderConfirm -imatch '^s') {
+                            Write-Log "Skipped remaining folders on $($drive.Name):" -Level Info
+                            break
+                        }
+                        if ($folderConfirm -match '^[yY]') {
+                            try {
+                                Remove-Item -Path $folder.FullName -Recurse -Force -ErrorAction SilentlyContinue
+                                Write-Log "Deleted: $($folder.FullName)" -Level Success
+                            } catch {
+                                Write-Log "Error deleting $($folder.FullName) -- $($_.Exception.Message)" -Level Warn
+                            }
+                        } else {
+                            Write-Log "Skipped: $($folder.FullName)" -Level Info
+                        }
                     }
                 }
-            } else {
-                Write-Log "Skipped drive $($drive.Name):" -Level Info
+                default {
+                    Write-Log "Skipped drive $($drive.Name):" -Level Info
+                }
             }
         }
     }
@@ -3912,13 +3940,13 @@ function Start-OldLaptopCleanup {
     $confirm = Read-Host "  Delete all saved WiFi profiles? [y/N]"
     if ($confirm -match '^[yY]') {
         try {
-            $wifiProfiles = & netsh wlan show profiles 2>$null |
+            $wifiProfiles = @(& netsh wlan show profiles 2>$null |
                 ForEach-Object {
                     if ($_ -match ':\s*(.+)$' -and $_ -notmatch '^-') {
                         $candidate = $Matches[1].Trim()
                         if ($candidate -and $candidate.Length -gt 0 -and $candidate -notmatch '^\s*$') { $candidate }
                     }
-                } | Where-Object { $_ }
+                } | Where-Object { $_ })
             foreach ($wifiProfile in $wifiProfiles) {
                 & netsh wlan delete profile name="$wifiProfile" 2>$null | Out-Null
             }
@@ -3934,7 +3962,7 @@ function Start-OldLaptopCleanup {
     if ($confirm -match '^[yY]') {
         try {
             # Clear generic credentials
-            $creds = & cmdkey /list 2>$null | Select-String 'Target:\s*(.+)' | ForEach-Object { $_.Matches[0].Groups[1].Value.Trim() }
+            $creds = @(& cmdkey /list 2>$null | Select-String 'Target:\s*(.+)' | ForEach-Object { $_.Matches[0].Groups[1].Value.Trim() })
             foreach ($cred in $creds) {
                 & cmdkey /delete:"$cred" 2>$null | Out-Null
             }
