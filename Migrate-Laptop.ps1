@@ -3737,8 +3737,49 @@ function Start-OldLaptopCleanup {
     Write-Host ""
     Write-Log "Old laptop cleanup started -- user confirmed twice" -Level Warn
 
+    # Protect the folder this script is running from
+    $script:ScriptFolder = if ($PSScriptRoot) { (Resolve-Path $PSScriptRoot).Path } else { (Get-Location).Path }
+    $script:OutputFolder  = if (Test-Path $OutputDir) { (Resolve-Path $OutputDir).Path } else { $OutputDir }
+    function Test-IsScriptFolder {
+        param([string]$Path)
+        if (-not (Test-Path $Path)) { return $false }
+        $resolved = (Resolve-Path $Path).Path
+        return $script:ScriptFolder.StartsWith($resolved, [System.StringComparison]::OrdinalIgnoreCase) -or
+               $script:OutputFolder.StartsWith($resolved, [System.StringComparison]::OrdinalIgnoreCase) -or
+               $resolved.StartsWith($script:ScriptFolder, [System.StringComparison]::OrdinalIgnoreCase) -or
+               $resolved.StartsWith($script:OutputFolder, [System.StringComparison]::OrdinalIgnoreCase)
+    }
+
     # -- Step 1: Clean user profile folders --
     Write-Step "Step 1/9: Cleaning User Profile Folders"
+
+    # SAFETY: Check if OneDrive is still linked -- deleting synced folders will delete from cloud!
+    $oneDriveRunning = $null -ne (Get-Process OneDrive -ErrorAction SilentlyContinue)
+    $oneDrivePath = $env:OneDrive
+    $oneDriveLinked = $oneDriveRunning -or ($oneDrivePath -and (Test-Path $oneDrivePath))
+
+    if ($oneDriveLinked) {
+        Write-Host ""
+        Write-Host "  ##############################################################" -ForegroundColor Red
+        Write-Host "  ##  WARNING: OneDrive is still LINKED to this laptop!       ##" -ForegroundColor Red
+        Write-Host "  ##                                                          ##" -ForegroundColor Red
+        Write-Host "  ##  Your Desktop, Documents, Pictures folders are synced.   ##" -ForegroundColor Red
+        Write-Host "  ##  Deleting them HERE will delete them from the CLOUD too! ##" -ForegroundColor Red
+        Write-Host "  ##                                                          ##" -ForegroundColor Red
+        Write-Host "  ##  UNLINK OneDrive FIRST:                                  ##" -ForegroundColor Red
+        Write-Host "  ##    Right-click OneDrive tray icon -> Settings             ##" -ForegroundColor Red
+        Write-Host "  ##    -> Account -> Unlink this PC                           ##" -ForegroundColor Red
+        Write-Host "  ##############################################################" -ForegroundColor Red
+        Write-Host ""
+        $odConfirm = Read-Host "  Have you unlinked OneDrive? [y/N] (N = skip OneDrive folders)"
+        if ($odConfirm -notmatch '^[yY]') {
+            Write-Log "OneDrive still linked -- skipping synced folders to protect cloud data" -Level Warn
+            $oneDriveLinked = $true
+        } else {
+            $oneDriveLinked = $false
+        }
+    }
+
     $profileFolders = @(
         [Environment]::GetFolderPath('Desktop'),
         [Environment]::GetFolderPath('MyDocuments'),
@@ -3750,10 +3791,19 @@ function Start-OldLaptopCleanup {
     foreach ($folder in $profileFolders) {
         if ($folder -and (Test-Path $folder)) {
             $folderName = Split-Path $folder -Leaf
+
+            # Skip OneDrive-synced folders if still linked
+            if ($oneDriveLinked -and $folder -imatch 'OneDrive') {
+                Write-Host "  [SKIP] $folderName -- OneDrive synced, unlink first to avoid cloud deletion" -ForegroundColor Yellow
+                Write-Log "Skipped $folderName (OneDrive synced, still linked)" -Level Warn
+                continue
+            }
             $confirm = Read-Host "  Delete contents of $folderName ($folder)? [y/N]"
             if ($confirm -match '^[yY]') {
                 try {
-                    Get-ChildItem -Path $folder -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+                    Get-ChildItem -Path $folder -Force -ErrorAction SilentlyContinue |
+                        Where-Object { -not (Test-IsScriptFolder $_.FullName) } |
+                        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
                     Write-Log "Cleaned: $folder" -Level Success
                 } catch {
                     Write-Log "Error cleaning $folder -- $($_.Exception.Message)" -Level Error
@@ -3778,6 +3828,10 @@ function Start-OldLaptopCleanup {
             $confirmDrive = Read-Host "  Delete ALL personal data folders on $($drive.Name):? [y/N]"
             if ($confirmDrive -match '^[yY]') {
                 foreach ($folder in $topFolders) {
+                    if (Test-IsScriptFolder $folder.FullName) {
+                        Write-Log "Skipped: $($folder.FullName) (contains this script -- delete manually after cleanup)" -Level Warn
+                        continue
+                    }
                     try {
                         Remove-Item -Path $folder.FullName -Recurse -Force -ErrorAction SilentlyContinue
                         Write-Log "Deleted: $($folder.FullName)" -Level Success
@@ -3956,15 +4010,35 @@ function Start-OldLaptopCleanup {
     Write-Host "  +==============================================================+" -ForegroundColor Green
     Write-Host ""
     Write-Host "  Remaining manual steps:" -ForegroundColor Yellow
-    Write-Host "    - Sign out of OneDrive, Teams, and other cloud apps" -ForegroundColor Yellow
-    Write-Host "    - Deauthorize this device from online accounts:" -ForegroundColor Yellow
-    Write-Host "        myaccount.google.com/device-activity" -ForegroundColor Gray
-    Write-Host "        account.microsoft.com/devices" -ForegroundColor Gray
-    Write-Host "        github.com/settings/sessions" -ForegroundColor Gray
-    Write-Host "    - Remove this device from Find My Device (if enabled)" -ForegroundColor Yellow
-    Write-Host "    - Consider Windows Reset if handing to someone else:" -ForegroundColor Yellow
-    Write-Host "        Settings -> System -> Recovery -> Reset this PC" -ForegroundColor Gray
     Write-Host ""
+    Write-Host "  SIGN OUT / UNLINK (do now):" -ForegroundColor Cyan
+    Write-Host "    [ ] OneDrive: right-click tray icon -> Settings -> Account -> Unlink this PC" -ForegroundColor White
+    Write-Host "    [ ] Teams / Microsoft 365: sign out from all apps" -ForegroundColor White
+    Write-Host "    [ ] Google: myaccount.google.com/device-activity -> remove this device" -ForegroundColor White
+    Write-Host "    [ ] iCloud: open iCloud app -> Sign Out (if installed)" -ForegroundColor White
+    Write-Host "    [ ] Dropbox / Google Drive desktop: Preferences -> Account -> Unlink" -ForegroundColor White
+    Write-Host "    [ ] Slack: sign out of all workspaces" -ForegroundColor White
+    Write-Host "    [ ] Docker Desktop: sign out from Docker Hub" -ForegroundColor White
+    Write-Host ""
+    Write-Host "  REVOKE ACCESS (do now or soon):" -ForegroundColor Cyan
+    Write-Host "    [ ] GitHub: github.com/settings/sessions -> revoke this device" -ForegroundColor White
+    Write-Host "    [ ] Microsoft: account.microsoft.com/devices -> remove this PC" -ForegroundColor White
+    Write-Host "    [ ] Revoke any app-specific tokens (GitHub PATs, Azure tokens, API keys)" -ForegroundColor White
+    Write-Host ""
+    Write-Host "  DEACTIVATE (if applicable):" -ForegroundColor Cyan
+    Write-Host "    [ ] Software licenses: Adobe, JetBrains, Office (if not 365)" -ForegroundColor White
+    Write-Host "    [ ] Find My Device: Settings -> Privacy & Security -> turn off" -ForegroundColor White
+    Write-Host "    [ ] Bluetooth: Settings -> Bluetooth -> remove paired devices" -ForegroundColor White
+    Write-Host ""
+    Write-Host "  IF HANDING LAPTOP TO SOMEONE ELSE:" -ForegroundColor Cyan
+    Write-Host "    [ ] Windows Reset: Settings -> System -> Recovery -> Reset this PC -> Remove Everything" -ForegroundColor White
+    Write-Host ""
+    if (Test-IsScriptFolder $script:ScriptFolder) {
+        Write-Host "  CLEANUP NOTE:" -ForegroundColor Yellow
+        Write-Host "    [ ] This script's folder was skipped: $script:ScriptFolder" -ForegroundColor White
+        Write-Host "        Delete it manually in File Explorer when done." -ForegroundColor DarkGray
+        Write-Host ""
+    }
     Write-Log "Old laptop cleanup completed."
 }
 
