@@ -3145,7 +3145,7 @@ function Write-TransferScript {
     [void]$sb.AppendLine("`$commonXD = @($xdArgs)")
     [void]$sb.AppendLine("`$commonXF = @($xfArgs)")
     [void]$sb.AppendLine("`$roboFlags = @('/E', '/MT:16', '/R:1', '/W:1', '/NP')")
-    [void]$sb.AppendLine('`$logFile = Join-Path `$PSScriptRoot "transfer-log-`$(Get-Date -Format ''yyyy-MM-dd-HHmmss'').txt"')
+    [void]$sb.AppendLine("`$logFile = Join-Path `$PSScriptRoot `"transfer-log-`$(Get-Date -Format 'yyyy-MM-dd-HHmmss').txt`"")
     [void]$sb.AppendLine("`$script:TransferStart = Get-Date")
     [void]$sb.AppendLine('')
     [void]$sb.AppendLine('function Show-Elapsed {')
