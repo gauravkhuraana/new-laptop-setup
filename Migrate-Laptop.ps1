@@ -3140,8 +3140,8 @@ function Write-TransferScript {
     [void]$sb.AppendLine('')
 
     # Build exclude args
-    $xdArgs = ($script:ExcludeDirs | ForEach-Object { "`"$_`"" }) -join " "
-    $xfArgs = ($script:ExcludeFiles | ForEach-Object { "`"$_`"" }) -join " "
+    $xdArgs = ($script:ExcludeDirs | ForEach-Object { "`"$_`"" }) -join ", "
+    $xfArgs = ($script:ExcludeFiles | ForEach-Object { "`"$_`"" }) -join ", "
     [void]$sb.AppendLine("`$commonXD = @($xdArgs)")
     [void]$sb.AppendLine("`$commonXF = @($xfArgs)")
     [void]$sb.AppendLine("`$roboFlags = @('/E', '/MT:16', '/R:1', '/W:1', '/NP')")
