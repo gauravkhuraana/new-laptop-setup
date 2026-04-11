@@ -547,5 +547,70 @@ Special thanks to **Monica Jain**, **Faiz Modi**, **Avishek Behera**, and **Amit
 
 ---
 
+## Wipe Old Laptop (Format C: Drive)
+
+<details><summary><strong>How to securely wipe your old laptop after migration</strong></summary>
+
+> **Do this only after** you've verified everything works on your new laptop. Wait at least 1–2 weeks.
+
+### Step 1: Disable BitLocker
+
+1. Open **Settings** → search for **BitLocker** → click **Manage BitLocker**
+2. Click **Turn off BitLocker** → confirm
+3. Wait for decryption to finish — check progress in an **admin** Command Prompt:
+   ```powershell
+   manage-bde -status C:
+   ```
+   Look for **"Percentage Encrypted"** — when it shows **0.0%** and status says **"Fully Decrypted"**, you're done.
+
+   > **Estimated time:** ~30–60 min for NVMe SSD, ~1–2 hours for SATA SSD, ~3–6 hours for HDD.
+   > Keep the laptop **plugged in** and don't let it sleep — decryption pauses during sleep.
+
+### Step 2: Enable Windows Recovery Environment
+
+Once BitLocker is fully off, open an **admin** Command Prompt and run:
+
+```powershell
+reagentc /enable
+```
+
+Verify it's enabled:
+
+```powershell
+reagentc /info
+```
+
+You should see **"Windows RE status: Enabled"**.
+
+### Step 3: Reset the PC
+
+1. Open **Settings** → **System** → **Recovery**
+2. Click **Reset this PC**
+3. Choose **Remove everything**
+4. Select **Clean data** (overwrites the drive so files can't be recovered)
+5. Confirm and let it run
+
+The PC will restart and wipe everything. This can take 30–60 minutes.
+
+### Alternative: Wipe via USB installer (if Reset doesn't work)
+
+If the reset still fails, boot from a Windows USB installer:
+
+1. Create a bootable USB using the [Windows Media Creation Tool](https://www.microsoft.com/software-download/windows11)
+2. Boot from USB (press **F12** at startup for boot menu)
+3. On the install screen, press **Shift+F10** to open Command Prompt
+4. Run:
+   ```
+   diskpart
+   select disk 0
+   clean all
+   exit
+   ```
+   > `clean all` writes zeros to every sector — secure but takes a few hours on large drives. Use `clean` (without `all`) for a quick wipe if BitLocker was previously enabled (encrypted data is unrecoverable without the key).
+
+</details>
+
+---
+
 Created by [gauravkhurana.com](https://gauravkhurana.com) for the community.
 Like this? [Star the repo](https://github.com/gauravkhuraana/new-laptop-setup) | [Connect](https://gauravkhurana.com/connect) | **#SharingIsCaring**
