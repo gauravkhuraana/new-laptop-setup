@@ -19,6 +19,43 @@ Nothing is deleted or modified on your old laptop. Every script asks before doin
 
 ---
 
+## Before You Start (on OLD laptop)
+
+Do these **before** running the migration tool. Takes 10–15 minutes and saves hours later.
+
+### Ensure sync is current
+
+- [ ] **OneDrive** — check the icon in system tray shows ✅ (fully synced). If files are still uploading, wait for sync to finish
+- [ ] **Browser sign-in** — verify you're signed into Chrome / Edge / Firefox (bookmarks, passwords, extensions will sync to new laptop)
+- [ ] **VS Code Settings Sync** — if not already on: `Ctrl+Shift+P` → "Settings Sync: Turn On" → sign in. Let it finish uploading
+- [ ] **iCloud / Google Drive / Dropbox** — if you use any, make sure everything is synced (no pending uploads)
+
+### Back up what doesn't sync
+
+- [ ] **SSH keys** — copy `%USERPROFILE%\.ssh\` folder to a USB drive (never email or cloud-share private keys)
+- [ ] **License keys** — note down software license keys (check email for purchase receipts, or use tools like ProduKey)
+- [ ] **2FA / Authenticator** — ensure your authenticator app (Microsoft Authenticator, Google Authenticator, Authy) is backed up or supports multi-device. **If you wipe the old phone/laptop without doing this, you get locked out**
+- [ ] **Outlook rules** — export: File → Manage Rules & Alerts → Options → Export Rules (`.rwz` file)
+- [ ] **VPN configs** — screenshot or export your VPN connection settings
+- [ ] **KeePass database** — if using KeePass, copy your `.kdbx` file to USB
+
+### Note down things you'll forget
+
+- [ ] **Printer names & IPs** — Settings → Bluetooth & Devices → Printers (note network printer IPs)
+- [ ] **Mapped network drives** — open File Explorer, note any `Z:\`, `X:\` etc. mapped drives and their paths
+- [ ] **Custom hosts file entries** — check `C:\Windows\System32\drivers\etc\hosts` for any custom entries
+- [ ] **Startup apps** — Task Manager → Startup tab — note which apps you want starting at login
+
+### Optional but helpful
+
+- [ ] **Docker volumes** — if you use Docker with persistent data: `docker volume ls` → export important volumes
+- [ ] **WSL distros** — if you use WSL: `wsl --export Ubuntu ubuntu-backup.tar` (save to USB)
+- [ ] **Database backups** — if running local databases: `pg_dump`, `mysqldump`, copy `.sqlite` files
+
+> **TL;DR** — Make sure cloud sync is finished, copy SSH keys to USB, note license keys, back up 2FA. Then run the tool.
+
+---
+
 ## Quick Start (3 minutes)
 
 ### 1. Download
@@ -103,6 +140,101 @@ Use USB drive, network share, or cloud sync.
 ### 5. Follow the Restoration Guide
 
 Open the HTML report (`scan-report-*.html`) → click the **Restoration Guide** tab. It has copy-paste commands for Git config, VS Code extensions, env variables, npm/pip packages, and more.
+
+### 6. Move folders to other drives (optional)
+
+If your new laptop has multiple drives (D:\, E:\) and you want to move folders out of the migration landing zone:
+
+**Option A: Windows built-in folder relocation (best for user folders)**
+
+This makes Windows treat a folder on another drive as your official Documents/Downloads/etc everywhere — File Explorer, Save dialogs, all apps.
+
+1. Open **File Explorer**
+2. Right-click **Documents** (or Downloads, Pictures, Videos, Music, Desktop)
+3. Click **Properties** → **Location** tab
+4. Click **Move** → pick the new folder (e.g., `D:\Documents`)
+5. Click **Apply** → **Yes** to move existing files
+
+> Works for: Documents, Downloads, Desktop, Pictures, Videos, Music
+
+**Option B: Robocopy move (best for project/data folders)**
+
+Open PowerShell on the new laptop and move folders with robocopy. This copies files then deletes the source — fast and resume-safe:
+
+```powershell
+# Move a folder from migration landing zone to D:\
+robocopy "C:\Migration\D\Projects" "D:\Projects" /E /MOVE /MT:16 /R:1 /W:1
+
+# Move another folder to E:\
+robocopy "C:\Migration\E\Code" "E:\Code" /E /MOVE /MT:16 /R:1 /W:1
+```
+
+> `/MOVE` = copies then deletes source. `/MT:16` = 16 threads for speed. Safe to re-run if interrupted.
+
+**Option C: Drag and drop (simplest, one folder at a time)**
+
+Open File Explorer → navigate to `C:\Migration\D\` → select a folder → **Cut** (Ctrl+X) → navigate to `D:\` → **Paste** (Ctrl+V).
+
+### 7. Post-Migration Checklist
+
+Do these on the **new laptop** after transferring data and installing software. Take your time — don't rush.
+
+#### Sign in to sync (do these first)
+
+- [ ] **OneDrive** — sign in → Desktop, Documents, Pictures sync back automatically
+- [ ] **Browser (Chrome/Edge/Firefox)** — sign in → bookmarks, passwords, extensions all sync
+- [ ] **VS Code** — `Ctrl+Shift+P` → "Settings Sync: Turn On" → sign in with GitHub or Microsoft
+- [ ] **Microsoft 365 (Teams, Outlook, Word)** — sign in with your work/personal account
+- [ ] **Password manager** — install and sign in (Bitwarden, 1Password, KeePass, etc.)
+
+#### Set up manually (these don't sync)
+
+- [ ] **Git config** — `git config --global user.name "Your Name"` and `git config --global user.email "you@email.com"`
+- [ ] **SSH keys** — copy `.ssh/` folder via USB drive (never over network) → fix permissions:
+  ```powershell
+  icacls "$env:USERPROFILE\.ssh\id_*" /inheritance:r /grant:r "$($env:USERNAME):(R)"
+  ```
+  Test: `ssh -T git@github.com`
+- [ ] **Environment variables** — Settings → System → About → Advanced → Environment Variables
+- [ ] **PowerShell profile** — copy old `$PROFILE` content to new laptop (run `$PROFILE` to see path)
+- [ ] **VPN** — configure connection settings (screenshot from old laptop helps)
+- [ ] **Printers** — Settings → Bluetooth & Devices → Printers → Add printer
+
+#### Rebuild project dependencies
+
+After transferring project folders, open a terminal in each project and run:
+
+| Project type | Command |
+|-------------|---------|
+| Node.js | `npm install` |
+| Python | `pip install -r requirements.txt` |
+| .NET / C# | `dotnet restore` |
+| Java / Maven | `mvn clean install` |
+| Java / Gradle | `gradle build` |
+| Rust | `cargo build` |
+| Go | `go mod download` |
+
+#### Verify everything works
+
+- [ ] Open each IDE/editor — VS Code, Visual Studio, IntelliJ
+- [ ] Clone or open a Git repo — verify push/pull works
+- [ ] Build at least one project per language you use
+- [ ] Test SSH: `ssh -T git@github.com`
+- [ ] Check browser extensions are present
+- [ ] Verify Docker works: `docker run hello-world`
+- [ ] Check mapped network drives (re-map if needed): `net use Z: \\server\share /persistent:yes`
+- [ ] Test printers — print a test page
+
+#### Important reminders
+
+- [ ] **2FA / Authenticator** — set up on new device BEFORE wiping old laptop (Microsoft Authenticator, Google Authenticator, Authy)
+- [ ] **License keys** — note down software license keys (check email receipts)
+- [ ] **Outlook rules** — export: File → Manage Rules → Options → Export Rules
+- [ ] **Outlook signatures** — copy `%APPDATA%\Microsoft\Signatures` folder
+
+#### Wait before wiping
+
+> **Wait at least 1–2 weeks** before deleting anything on the old laptop. You always discover something you missed after a few days. Keep the old laptop powered on and accessible as a backup.
 
 ---
 
