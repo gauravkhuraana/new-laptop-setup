@@ -3825,7 +3825,44 @@ function Start-OldLaptopCleanup {
             Where-Object { -not $_.Name.StartsWith('$') -and $_.Name -ne 'System Volume Information' -and $_.Name -ne '$RECYCLE.BIN' }
         if ($topFolders.Count -gt 0) {
             Write-Host "  Drive $($drive.Name): has $($topFolders.Count) folders" -ForegroundColor Yellow
-            $confirmDrive = Read-Host "  Delete ALL personal data folders on $($drive.Name):? [y/N]"
+            if (Test-IsScriptFolder $root) {
+                Write-Host "  (This script is on $($drive.Name): -- format is not available, folder-by-folder only)" -ForegroundColor DarkGray
+                $confirmDrive = Read-Host "  Delete folders on $($drive.Name):? [y/N]"
+            } else {
+                Write-Host ""
+                Write-Host "  [1] Quick Format $($drive.Name): (fastest -- wipes everything in seconds, NTFS)" -ForegroundColor White
+                Write-Host "  [2] Delete folders one by one" -ForegroundColor White
+                Write-Host "  [3] Skip this drive" -ForegroundColor White
+                Write-Host ""
+                $driveChoice = Read-Host "  Choose [1/2/3]"
+                if ($driveChoice -eq '1') {
+                    Write-Host ""
+                    Write-Host "  This will ERASE ALL DATA on $($drive.Name): instantly." -ForegroundColor Red
+                    $formatConfirm = Read-Host "  Type the drive letter ($($drive.Name)) to confirm format"
+                    if ($formatConfirm -ieq $drive.Name) {
+                        try {
+                            Write-Host "  Formatting $($drive.Name):..." -ForegroundColor Yellow
+                            Format-Volume -DriveLetter $drive.Name -FileSystem NTFS -NewFileSystemLabel "" -Confirm:$false -ErrorAction Stop
+                            Write-Log "Formatted drive $($drive.Name): (quick format, NTFS)" -Level Success
+                        } catch {
+                            Write-Log "Format failed: $($_.Exception.Message) -- trying command-line format..." -Level Warn
+                            try {
+                                $null = "Y" | format "$($drive.Name):" /FS:NTFS /Q /V:"" 2>&1
+                                Write-Log "Formatted drive $($drive.Name): via format command" -Level Success
+                            } catch {
+                                Write-Log "Format failed: $($_.Exception.Message) -- delete folders manually" -Level Error
+                            }
+                        }
+                    } else {
+                        Write-Log "Format cancelled (drive letter didn't match)" -Level Info
+                    }
+                    continue
+                } elseif ($driveChoice -eq '3') {
+                    Write-Log "Skipped drive $($drive.Name):" -Level Info
+                    continue
+                }
+                $confirmDrive = 'y'  # User chose option 2
+            }
             if ($confirmDrive -match '^[yY]') {
                 foreach ($folder in $topFolders) {
                     if (Test-IsScriptFolder $folder.FullName) {
