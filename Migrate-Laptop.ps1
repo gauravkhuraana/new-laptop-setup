@@ -3237,18 +3237,18 @@ function Write-TransferScript {
         [void]$sb.AppendLine("else {")
         if ($f.IsOneDrive) {
             [void]$sb.AppendLine(('Write-Host "  [cloud] {0} is synced to OneDrive -- it will sync automatically on the new laptop." -ForegroundColor Blue' -f $f.Name))
-            [void]$sb.AppendLine(('`$confirm{0} = Read-Host "  Copy {1} anyway as backup ({2})? [y/N]"' -f $safeName, $f.Name, $f.SizeText))
-            [void]$sb.AppendLine(('if (`$confirm{0} -match ''^[yY]'') {{' -f $safeName))
+            [void]$sb.AppendLine(('$confirm{0} = Read-Host "  Copy {1} anyway as backup ({2})? [y/N]"' -f $safeName, $f.Name, $f.SizeText))
+            [void]$sb.AppendLine(('if ($confirm{0} -match ''^[yY]'') {{' -f $safeName))
         } else {
-            [void]$sb.AppendLine(('`$confirm{0} = Read-Host "Transfer {1} ({2})? [Y/n]"' -f $safeName, $f.Name, $f.SizeText))
-            [void]$sb.AppendLine(('if (`$confirm{0} -notmatch ''^[nN]'') {{' -f $safeName))
+            [void]$sb.AppendLine(('$confirm{0} = Read-Host "Transfer {1} ({2})? [Y/n]"' -f $safeName, $f.Name, $f.SizeText))
+            [void]$sb.AppendLine(('if ($confirm{0} -notmatch ''^[nN]'') {{' -f $safeName))
         }
         [void]$sb.AppendLine(('    Write-Host "  Transferring {0}..." -ForegroundColor Yellow' -f $f.Name))
         [void]$sb.AppendLine("    `$stepStart = Get-Date")
-        [void]$sb.AppendLine(('    robocopy "{0}" "`$destBase\C\{1}" `$roboFlags /XD `$commonXD /XF `$commonXF /LOG+:`$logFile' -f $f.Path, $f.Name))
+        [void]$sb.AppendLine(('    robocopy "{0}" "$destBase\C\{1}" $roboFlags /XD $commonXD /XF $commonXF /LOG+:$logFile' -f $f.Path, $f.Name))
         [void]$sb.AppendLine(('    if (Test-RobocopyResult ''{0}'') {{' -f $f.Name))
         [void]$sb.AppendLine(('        Save-Progress ''{0}'' ''done''' -f $stepId))
-        [void]$sb.AppendLine(('        Write-Host "  {0} done in `$(Show-Elapsed `$stepStart)" -ForegroundColor Green' -f $f.Name))
+        [void]$sb.AppendLine(('        Write-Host "  {0} done in $(Show-Elapsed $stepStart)" -ForegroundColor Green' -f $f.Name))
         [void]$sb.AppendLine("    }")
         [void]$sb.AppendLine("}")
         [void]$sb.AppendLine("}")  # close else block
