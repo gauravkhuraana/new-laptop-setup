@@ -1676,7 +1676,8 @@ function Save-ScanCache {
     $finished = $job | Wait-Job -Timeout $timeoutSeconds
     if ($null -eq $finished) {
         $job | Stop-Job -PassThru | Remove-Job -Force | Out-Null
-        if (Test-Path $tmpPath) { Remove-Item -Path $tmpPath -Force -ErrorAction SilentlyContinue }
+        # Clean up our own temp file (not user data)
+        if (Test-Path $tmpPath) { [System.IO.File]::Delete($tmpPath) }
         Write-Log "Scan cache save timed out after ${timeoutSeconds}s. Continuing with in-memory data (reports/scripts still generated)." -Level Warn
         return $false
     }
@@ -1686,7 +1687,8 @@ function Save-ScanCache {
     if ($result -is [Array]) { $result = [string]$result[-1] }
 
     if ($result -ne 'OK') {
-        if (Test-Path $tmpPath) { Remove-Item -Path $tmpPath -Force -ErrorAction SilentlyContinue }
+        # Clean up our own temp file (not user data)
+        if (Test-Path $tmpPath) { [System.IO.File]::Delete($tmpPath) }
         $errText = if ($result) { $result } else { 'unknown serialization error' }
         Write-Log "Scan cache save failed: $errText. Continuing with in-memory data." -Level Warn
         return $false
