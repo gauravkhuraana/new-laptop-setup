@@ -539,8 +539,7 @@ Attach the generated file to your issue.
 
 ## Acknowledgements
 
-Special thanks to **Monica Jain**, **Faiz Modi**, **Avishek Behera**, and **Amit Singh** for helping test this tool.
-
+Special thanks to **[Monica Jain](https://www.linkedin.com/in/monica-jain-mj/)**, **[Faiz Modi](https://www.linkedin.com/in/faiz-modi/)**, **[Avishek Behera](https://github.com/avighub)**, and **[Amit Singh](https://www.linkedin.com/in/amit-singh-579ba566)** for helping test this tool.
 ---
 
 ## Disclaimer
