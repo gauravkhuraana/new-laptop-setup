@@ -7,6 +7,8 @@ Run it on your old laptop → it scans everything → generates ready-to-run scr
 > **Fast transfer by default:** For repos and projects, the transfer script skips heavy re-creatable folders (like `node_modules`, `.git`, and build caches) so copy is much faster.
 > **You control installs:** Your detected software is listed in `Install-Software.ps1`, and you can choose exactly what to install by keeping or commenting lines.
 
+## Click the image to watch the video
+[![Watch the video](https://img.youtube.com/vi/7ngPI9bEE8U/maxresdefault.jpg)](https://youtu.be/7ngPI9bEE8U)
 ---
 
 ## What It Does
@@ -537,8 +539,7 @@ Attach the generated file to your issue.
 
 ## Acknowledgements
 
-Special thanks to **Monica Jain**, **Faiz Modi**, **Avishek Behera**, and **Amit Singh** for helping test this tool.
-
+Special thanks to **[Monica Jain](https://www.linkedin.com/in/monica-jain-mj/)**, **[Faiz Modi](https://www.linkedin.com/in/faiz-modi/)**, **[Avishek Behera](https://github.com/avighub)**, and **[Amit Singh](https://www.linkedin.com/in/amit-singh-579ba566)** for helping test this tool.
 ---
 
 ## Disclaimer
