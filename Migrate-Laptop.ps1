@@ -4120,7 +4120,6 @@ function Show-AboutTool {
     Write-Host "  WHAT IT CANNOT DO" -ForegroundColor Red
     Write-Host "  -----------------" -ForegroundColor Red
     Write-Host "    [-] Cannot migrate Windows itself (OS must be fresh on new laptop)" -ForegroundColor White
-    Write-Host "    [-] Cannot transfer installed programs (they must be reinstalled)" -ForegroundColor White
     Write-Host "    [-] Cannot read SSH private key CONTENTS (only lists file names)" -ForegroundColor White
     Write-Host "    [-] Cannot export Outlook rules automatically (manual step required)" -ForegroundColor White
     Write-Host "    [-] Cannot transfer browser passwords (use browser sign-in sync)" -ForegroundColor White
